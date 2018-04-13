@@ -29,17 +29,49 @@ matrix *initial(int r, int c){
     return res;
 }
 
+void destruct(matrix *self){
+    free(self->val);
+    free(self);
+}
 
-
-struct matrix addMat(const matrix *a, const matrix *b){
+struct matrix *addMat(matrix *a, matrix *b){
     if (a->row != b->row || a->column != b->column){
         fprintf( stderr, "Error in addMat. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
+        return NULL;
     }else{
         matrix *res = initial(a->row, a->column);
         int i=0, j=0;
         for (i=0; i<a->row; i++){
             for (j=0; j<a->column; j++){
                 *getMat(res, i, j) = *getMat(a, i, j) + *getMat(b, i, j);
+            }
+        }
+        return res;
+    }
+};
+
+struct matrix *addMatVal(matrix *a, float b){
+    matrix *res = initial(a->row, a->column);
+    int i=0, j=0;
+    for (i=0; i<a->row; i++){
+        for (j=0; j<a->column; j++){
+            *getMat(res, i, j) = *getMat(a, i, j) + b;
+        }
+    }
+    return res;
+};
+
+struct matrix *dotMat(matrix *a, matrix *b){
+    if (a->column != b->row){
+        fprintf( stderr, "Error in dotMat. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
+        return NULL;
+    }else{
+        matrix *res = initial(a->row, b->column);
+        int i=0, j=0, k=0;
+        for (i=0; i<a->row; i++){
+            for (j=0; j<b->column; j++){
+                *getMat(res, i, j) = 0;
+                for (k=0; k<a->)
             }
         }
         return res;
