@@ -71,7 +71,9 @@ struct matrix *dotMat(matrix *a, matrix *b){
         for (i=0; i<a->row; i++){
             for (j=0; j<b->column; j++){
                 *getMat(res, i, j) = 0;
-                for (k=0; k<a->column)
+                for (k=0; k<a->column; k++){
+
+                }
             }
         }
         return res;
