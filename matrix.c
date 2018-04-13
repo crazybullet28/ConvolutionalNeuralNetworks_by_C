@@ -21,10 +21,10 @@ double* getMat(matrix *self, int r, int c){
 }
 
 matrix *initial(int r, int c){
-    matrix *res = malloc(sizeof(matrix));
+    matrix *res = (matrix*) malloc(sizeof(matrix));
     res->row = r;
     res->column = c;
-    res->val = malloc(r*c*sizeof(double));
+    res->val = (double*) malloc(r*c*sizeof(double));
     return res;
 }
 
