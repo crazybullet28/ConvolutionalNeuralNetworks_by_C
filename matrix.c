@@ -8,11 +8,11 @@
 typedef struct matrix{
     int row;
     int column;
-    float * val;
-//    float* (*getMat)(struct matrix *self, int r, int c);
+    double * val;
+//    double* (*getMat)(struct matrix *self, int r, int c);
 } matrix;
 
-float* getMat(matrix *self, int r, int c){
+double* getMat(matrix *self, int r, int c){
     if (r>=self->row || c>=self->column){
         fprintf( stderr, "Error in getMat. Size out of range: %d - %d, %d - %d\n", self->row, self->column, r, c);
     }else{
@@ -24,7 +24,7 @@ matrix *initial(int r, int c){
     matrix *res = malloc(sizeof(matrix));
     res->row = r;
     res->column = c;
-    res->val = malloc(r*c*sizeof(float));
+    res->val = malloc(r*c*sizeof(double));
     return res;
 }
 
@@ -49,7 +49,7 @@ matrix *addMat(matrix *a, matrix *b){
     }
 };
 
-matrix *addMatVal(matrix *a, float b){
+matrix *addMatVal(matrix *a, double b){
     matrix *res = initial(a->row, a->column);
     int i=0, j=0;
     for (i=0; i<a->row; i++){
@@ -60,7 +60,7 @@ matrix *addMatVal(matrix *a, float b){
     return res;
 };
 
-matrix *dotMat(matrix *a, matrix *b){
+matrix *mulMat(matrix *a, matrix *b){
     if (a->column != b->row){
         fprintf( stderr, "Error in dotMat. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
         return NULL;
@@ -77,4 +77,15 @@ matrix *dotMat(matrix *a, matrix *b){
         }
         return res;
     }
+}
+
+matrix *mulMatVal(matrix *a, double b){
+    matrix *res = initial(a->row, a->column);
+    int i=0, j=0;
+    for (i=0; i<a->row; i++){
+        for (j=0; j<a->column; j++){
+            *getMat(res, i, j) = *getMat(a, i, j) * b;
+        }
+    }
+    return res;
 }
