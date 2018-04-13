@@ -60,9 +60,41 @@ matrix *addMatVal(matrix *a, double b){
     return res;
 };
 
+matrix *dotMat(matrix *a, matrix *b){
+    if (a->row != b->row || a->column != b->column){
+        fprintf( stderr, "Error in dotMat. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
+        return NULL;
+    }else{
+        matrix *res = initial(a->row, a->column);
+        int i=0, j=0;
+        for (i=0; i<a->row; i++){
+            for (j=0; j<a->column; j++){
+                *getMat(res, i, j) = *getMat(a, i, j) * *getMat(b, i, j);
+            }
+        }
+        return res;
+    }
+};
+
+double dotMatSum(matrix *a, matrix *b){
+    if (a->row != b->row || a->column != b->column){
+        fprintf( stderr, "Error in dotMatSum. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
+        return NULL;
+    }else{
+        double sum=0;
+        int i=0, j=0;
+        for (i=0; i<a->row; i++){
+            for (j=0; j<a->column; j++){
+                sum += *getMat(a, i, j) * *getMat(b, i, j);
+            }
+        }
+        return sum;
+    }
+};
+
 matrix *mulMat(matrix *a, matrix *b){
     if (a->column != b->row){
-        fprintf( stderr, "Error in dotMat. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
+        fprintf( stderr, "Error in mulMat. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
         return NULL;
     }else{
         matrix *res = initial(a->row, b->column);
@@ -77,7 +109,7 @@ matrix *mulMat(matrix *a, matrix *b){
         }
         return res;
     }
-}
+};
 
 matrix *mulMatVal(matrix *a, double b){
     matrix *res = initial(a->row, a->column);
@@ -88,4 +120,26 @@ matrix *mulMatVal(matrix *a, double b){
         }
     }
     return res;
-}
+};
+
+double sumMat(matrix *a){
+    double res=0;
+    int i=0, j=0;
+    for (i=0; i<a->row; i++){
+        for (j=0; j<a->column; j++){
+            res += *getMat(a, i, j);
+        }
+    }
+    return res;
+};
+
+matrix * tranMat(matrix* a){
+    matrix *res = initial(a->column, a->row);
+    int i=0, j=0;
+    for (i=0; i<a->column; i++){
+        for (j=0; j<a->val; j++){
+            *getMat(res, i, j) = *getMat(a, j, i);
+        }
+    }
+    return res;
+};
