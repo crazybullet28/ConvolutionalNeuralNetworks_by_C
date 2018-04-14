@@ -20,14 +20,16 @@ double* getMatVal(matrix *self, int r, int c){
     }
 }
 
-matrix* initMat(int r, int c){
+matrix* initMat(int r, int c, int type){        // if type = 1, then initial all val with 0
     matrix *res = (matrix*) malloc(sizeof(matrix));
     res->row = r;
     res->column = c;
     res->val = (double*) malloc(r*c*sizeof(double));
-    int i;
-    for (i=0; i<r*c; i++){
-        res->val[i] = 0;
+    if (type==1){
+        int i;
+        for (i=0; i<r*c; i++){
+            res->val[i] = 0;
+        }
     }
     return res;
 }
@@ -63,12 +65,12 @@ void resetMat(matrix* self, int r, int c){
             }
         }
     }else{
-        self = initMat(r, c);
+        self = initMat(r, c, 1);
     }
 }
 
 matrix* defMat(double** data, int r, int c){
-    matrix* res = initMat(r, c);
+    matrix* res = initMat(r, c, 0);
     int i, j;
     for (i=0; i<r; i++){
         for (j=0; j<c; j++){
@@ -304,3 +306,8 @@ void mat2arr(double* res, matrix* a){
         res[i] = a->val[i];
     }
 };
+
+//void arr2Mat(matrix* res, double* a, int r, int c){
+//    resetMat(res, r, c);
+//
+//};
