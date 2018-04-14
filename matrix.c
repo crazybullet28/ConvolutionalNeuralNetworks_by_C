@@ -74,12 +74,37 @@ void addMat(matrix* res, matrix* a, matrix* b){
     }
 };
 
+void addMat_relpace(matrix* a, matrix* b){
+    if (a->row != b->row || a->column != b->column){
+        fprintf( stderr, "Error in addMat. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
+        return;
+    }else{
+        int i=0, j=0;
+        for (i=0; i<a->row; i++){
+            for (j=0; j<a->column; j++){
+                *getMatVal(a, i, j) = *getMatVal(a, i, j) + *getMatVal(b, i, j);
+            }
+        }
+        return;
+    }
+};
+
 void addMatVal(matrix* res, matrix *a, double b){
     resetMat(res, a->row, a->column);
     int i=0, j=0;
     for (i=0; i<a->row; i++){
         for (j=0; j<a->column; j++){
             *getMatVal(res, i, j) = *getMatVal(a, i, j) + b;
+        }
+    }
+    return;
+};
+
+void addMatVal_replace(matrix *a, double b){
+    int i=0, j=0;
+    for (i=0; i<a->row; i++){
+        for (j=0; j<a->column; j++){
+            *getMatVal(a, i, j) = *getMatVal(a, i, j) + b;
         }
     }
     return;
@@ -95,6 +120,21 @@ void dotMat(matrix* res, matrix *a, matrix *b){
         for (i=0; i<a->row; i++){
             for (j=0; j<a->column; j++){
                 *getMatVal(res, i, j) = *getMatVal(a, i, j) * *getMatVal(b, i, j);
+            }
+        }
+        return;
+    }
+};
+
+void dotMat_replace(matrix *a, matrix *b){
+    if (a->row != b->row || a->column != b->column){
+        fprintf( stderr, "Error in dotMat. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
+        return;
+    }else{
+        int i=0, j=0;
+        for (i=0; i<a->row; i++){
+            for (j=0; j<a->column; j++){
+                *getMatVal(a, i, j) = *getMatVal(a, i, j) * *getMatVal(b, i, j);
             }
         }
         return;
@@ -142,6 +182,16 @@ void mulMatVal(matrix* res, matrix *a, double b){
     for (i=0; i<a->row; i++){
         for (j=0; j<a->column; j++){
             *getMatVal(res, i, j) = *getMatVal(a, i, j) * b;
+        }
+    }
+    return;
+};
+
+void mulMatVal_replace(matrix *a, double b){
+    int i=0, j=0;
+    for (i=0; i<a->row; i++){
+        for (j=0; j<a->column; j++){
+            *getMatVal(a, i, j) = *getMatVal(a, i, j) * b;
         }
     }
     return;
