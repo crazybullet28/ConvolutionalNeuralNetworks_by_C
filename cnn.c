@@ -109,8 +109,8 @@ CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChann
         covLayer->mapWeight[i] = (matrix**) malloc(outChannels* sizeof(matrix*));
         covLayer->dmapWeight[i] = (matrix**) malloc(outChannels* sizeof(matrix*));
         for (j=0; j<outChannels; j++){
-            covLayer->mapWeight[i][j] = initMat(mapSize, mapSize);
-            covLayer->dmapWeight[i][j] = initMat(mapSize, mapSize);
+            covLayer->mapWeight[i][j] = initMat(mapSize, mapSize, 0);
+            covLayer->dmapWeight[i][j] = initMat(mapSize, mapSize, 0);
             for (k=0; k<mapSize; k++){
                 for (l=0; l<mapSize; l++){
 //                    covLayer->mapData[i][j][k][l] = (rand()/(double)(RAND_MAX+1)-0.5)*2 * sqrt(6.0/(mapSize*mapSize*inChannels+outChannels));             // xavier initialize
@@ -131,10 +131,10 @@ CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChann
     covLayer->v=(matrix**)malloc(outChannels*sizeof(matrix*));
     covLayer->y=(matrix**)malloc(outChannels*sizeof(matrix*));
     for(j=0;j<outChannels;j++){
-        covLayer->d[j]=initMat(outH, outW);
-        covLayer->v[j]=initMat(outH, outW);
+        covLayer->d[j]=initMat(outH, outW, 0);
+        covLayer->v[j]=initMat(outH, outW, 1);
         // may need modify
-        covLayer->y[j]=initMat(outH, outW);
+        covLayer->y[j]=initMat(outH, outW, 0);
     }
 
     return covLayer;
@@ -157,8 +157,8 @@ PoolLayer* initPoolLayer(int inputWidth, int inputHeight, int mapSize, int inCha
     poolLayer->d = (matrix**) malloc(outChannels* sizeof(matrix*));
     poolLayer->y = (matrix**) malloc(outChannels* sizeof(matrix*));
     for(i=0;i<outChannels;i++){
-        poolLayer->d[i]=initMat(outH, outW);
-        poolLayer->y[i]=initMat(outH, outW);
+        poolLayer->d[i]=initMat(outH, outW, 0);
+        poolLayer->y[i]=initMat(outH, outW, 0);
     }
 
     return poolLayer;
@@ -175,8 +175,8 @@ OutLayer* initOutLayer(int inputNum,int outputNum){
 
     int i,j;
     outLayer->bias = (double*) malloc(outputNum*sizeof(double));
-    outLayer->weight = initMat(inputNum, outputNum);
-    srand(100);
+    outLayer->weight = initMat(inputNum, outputNum, 0);
+//    srand(100);
     for (i=0; i<outputNum; i++){
         for (j=0; j<inputNum; j++){
             *getMatVal(outLayer->weight, i, j)=(rand()/(double)(RAND_MAX+1)-0.5)*2 * sqrt(6.0/(inputNum+outputNum));
@@ -192,7 +192,7 @@ void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, 
     int i,j;
 
     if (padding==0){
-        matrix* tmp = initMat(mapSize, mapSize);
+        matrix* tmp = initMat(mapSize, mapSize, 0);
         for (i=0; i<outH; i++){
             for (j=0; j<outW; j++){
                 subMat(tmp, inMat, i, mapSize, j, mapSize);
@@ -203,14 +203,14 @@ void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, 
         freeMat(tmp);
         return;
     }else{
-        matrix* newInputMat = initMat(inMat->row+2*padding, inMat->column+2*padding);
+        matrix* newInputMat = initMat(inMat->row+2*padding, inMat->column+2*padding, 1);
         for (i=0; i<inMat->row; i++){
             for (j=0; j<inMat->column; j++){
                 *getMatVal(newInputMat, i+padding, j+padding) = *getMatVal(inMat, i, j);
             }
         }
 
-        matrix* tmp = initMat(mapSize, mapSize);
+        matrix* tmp = initMat(mapSize, mapSize, 0);
         for (i=0; i<outH; i++){
             for (j=0; j<outW; j++){
                 subMat(tmp, newInputMat, i, mapSize, j, mapSize);
@@ -225,14 +225,13 @@ void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, 
 
 void convolution(CovLayer* C, matrix** inMat){
     int i, j, k, l;
-    matrix* tmpv = initMat(C->outputHeight, C->outputWidth);
+    matrix* tmpv = initMat(C->outputHeight, C->outputWidth, 0);
 
     for (i=0; i<C->outChannels; i++){
         for (j=0; j<C->inChannels; j++){
             covolution_once(tmpv, inMat[j], C->mapWeight[j][i], C->outputHeight, C->outputWidth, C->paddingForward);
             addMat_replace(C->v[i], tmpv);
 //            clearMat(tmpv);       // not necessary
-//            clearMat(tmpy);
         }
         for (k=0; k<C->outputHeight; k++){
             for (l=0; l<C->outputWidth; l++){
@@ -241,11 +240,11 @@ void convolution(CovLayer* C, matrix** inMat){
             }
         }
     }
+    freeMat(tmpv);
 };
 
 void pooling_max(matrix* res, matrix* inMat, int mapSize){
     int i, j, k, l;
-    matrix* tmp = initMat(mapSize, mapSize);
     for (i=0; i<inMat->row/mapSize; i++){
         for (j=0; j<inMat->column/mapSize; j++){
             double max = *getMatVal(inMat, i*mapSize, j*mapSize);
@@ -274,4 +273,20 @@ void pooling(PoolLayer* S, matrix** inMat){
     }
 };
 
-void train(CNN* cnn, ImgArr )
+void nnForward(OutLayer* O, const double* inArr){
+    matrix inMat, vMat;     // no need to free
+    inMat.row=1;
+    inMat.column=O->inputNum;
+    inMat.val = inArr;
+
+    vMat.row=1;
+    vMat.column=O->outputNum;
+    vMat.val = O->v;
+
+    mulMat(&vMat, &inMat, O->weight);
+    int i;
+    for (i=0; i<O->outputNum; i++){
+        vMat.val[i] += O->bias[i];
+        O->y[i] = activate(vMat.val[i]);
+    }
+};
