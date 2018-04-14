@@ -16,19 +16,24 @@ typedef struct convolutional_layer{
 
     // 关于特征模板的权重分布，这里是一个四维数组, 其大小为inChannels * outChannels * mapSize * mapSize
     // 这里用四维数组，主要是为了表现全连接的形式，实际上卷积层并没有用到全连接的形式
-    double**** mapData;     //存放特征模块的数据
-    double**** dmapData;    //存放特征模块的数据的局部梯度
+//    double**** mapData;     //存放特征模块的数据
+    matrix*** mapWeight;
+//    double**** dmapData;    //存放特征模块的数据的局部梯度
+    matrix*** dmapWeight;
 
     double* bias;   //偏置，偏置的大小，为outChannels
     boolean isFullConnect; //是否为全连接
     boolean *connectModel; //连接模式（默认为全连接）
 
     // 下面三者的大小同输出的维度相同
-    double*** v; // 进入激活函数的输入值          outChannels * (inputHeight - mapSize + 1) * (inputWidth - mapSize + 1)
-    double*** y; // 激活函数后神经元的输出
+//    double*** v; // 进入激活函数的输入值          outChannels * (inputHeight - mapSize + 1) * (inputWidth - mapSize + 1)
+    matrix** v;
+//    double*** y; // 激活函数后神经元的输出
+    matrix** y;
 
     // 输出像素的局部梯度
-    double*** d; // 网络的局部梯度,δ值
+//    double*** d; // 网络的局部梯度,δ值
+    matrix** d;
 } CovLayer;
 
 typedef struct pooling_layer{
@@ -42,8 +47,10 @@ typedef struct pooling_layer{
     int poolType;       // max pooling / mean pooling
     double *bias;
 
-    double*** y; // output, without active
-    double*** d; // local gradient
+//    double*** y; // output, without active
+    matrix** y;
+//    double*** d; // local gradient
+    matrix** d;
 } PoolLayer;
 
 typedef struct nn_layer{
@@ -87,33 +94,23 @@ CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChann
 
     covLayer->isFullConnect=1;
 
-    covLayer->mapData = (double****) malloc(inChannels*sizeof(double***));
+    covLayer->mapWeight = (matrix***) malloc(inChannels* sizeof(matrix**));
+    covLayer->dmapWeight = (matrix***) malloc(inChannels*sizeof(matrix**));
+
     int i, j, k, l;
 
 //    srand(100);
 
     for (i=0; i<inChannels; i++){
-        covLayer->mapData[i] = (double***) malloc(inChannels*sizeof(double**));
+        covLayer->mapWeight[i] = (matrix**) malloc(outChannels* sizeof(matrix*));
+        covLayer->dmapWeight[i] = (matrix**) malloc(outChannels* sizeof(matrix*));
         for (j=0; j<outChannels; j++){
-            covLayer->mapData[i][j] = (double**) malloc(inChannels*sizeof(double*));
+            covLayer->mapWeight[i][j] = initMat(mapSize, mapSize);
+            covLayer->dmapWeight[i][j] = initMat(mapSize, mapSize);
             for (k=0; k<mapSize; k++){
-                covLayer->mapData[i][j][k] = (double*) malloc(inChannels*sizeof(double));
                 for (l=0; l<mapSize; l++){
-//                    covLayer->mapData[i][j][k][l] = (rand()/(double)(RAND_MAX+1)-0.5)*2 * sqrt(6.0/(mapSize*mapSize * (inChannels+outChannels)));        // xavier initialize
-                    covLayer->mapData[i][j][k][l] = (rand()/(double)(RAND_MAX+1)-0.5)*2 * sqrt(6.0/(mapSize*mapSize*inChannels+outChannels));
-                }
-            }
-        }
-    }
-
-    for (i=0; i<inChannels; i++){
-        covLayer->dmapData[i] = (double***) malloc(inChannels*sizeof(double**));
-        for (j=0; j<outChannels; j++){
-            covLayer->dmapData[i][j] = (double**) malloc(inChannels*sizeof(double*));
-            for (k=0; k<mapSize; k++){
-                covLayer->dmapData[i][j][k] = (double*) malloc(inChannels*sizeof(double));
-                for (l=0; l<mapSize; l++){
-                    covLayer->dmapData[i][j][k][l] = 0;
+//                    covLayer->mapData[i][j][k][l] = (rand()/(double)(RAND_MAX+1)-0.5)*2 * sqrt(6.0/(mapSize*mapSize*inChannels+outChannels));             // xavier initialize
+                    *getMat(covLayer->mapWeight[i][j], k, l) = (rand()/(double)(RAND_MAX+1)-0.5)*2 * sqrt(6.0/(mapSize*mapSize*inChannels+outChannels));
                 }
             }
         }
@@ -124,18 +121,13 @@ CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChann
     int outW=inputWidth-mapSize+1;
     int outH=inputHeight-mapSize+1;
 
-    covLayer->d=(double***)malloc(outChannels*sizeof(double**));
-    covLayer->v=(double***)malloc(outChannels*sizeof(double**));
-    covLayer->y=(double***)malloc(outChannels*sizeof(double**));
+    covLayer->d=(matrix**)malloc(outChannels*sizeof(matrix*));
+    covLayer->v=(matrix**)malloc(outChannels*sizeof(matrix*));
+    covLayer->y=(matrix**)malloc(outChannels*sizeof(matrix*));
     for(j=0;j<outChannels;j++){
-        covLayer->d[j]=(double**)malloc(outH*sizeof(double*));
-        covLayer->v[j]=(double**)malloc(outH*sizeof(double*));
-        covLayer->y[j]=(double**)malloc(outH*sizeof(double*));
-        for(k=0;k<outH;k++){
-            covLayer->d[j][k]=(double*)malloc(outW*sizeof(double));
-            covLayer->v[j][k]=(double*)malloc(outW*sizeof(double));
-            covLayer->y[j][k]=(double*)malloc(outW*sizeof(double));
-        }
+        covLayer->d[j]=initMat(outH, outW);
+        covLayer->v[j]=initMat(outH, outW);
+        covLayer->y[j]=initMat(outH, outW);
     }
 
     return covLayer;
@@ -193,6 +185,8 @@ OutLayer* initOutLayer(int inputNum,int outputNum){
     return outLayer;
 };
 
-matrix *covolution(CovLayer C, matrix *input){
+matrix *covolution(matrix* inputMat, matrix* map){
 
 };
+
+void train(CNN* cnn, ImgArr )

@@ -20,11 +20,11 @@ double* getMat(matrix *self, int r, int c){
     }
 }
 
-matrix *initial(int r, int c){
+matrix* initMat(int r, int c){
     matrix *res = (matrix*) malloc(sizeof(matrix));
     res->row = r;
     res->column = c;
-    res->val = (double*) calloc(r*c,sizeof(double));
+    res->val = (double*) malloc(r*c*sizeof(double));
     return res;
 }
 
@@ -33,12 +33,23 @@ void destruct(matrix *self){
     free(self);
 }
 
+matrix* defMat(double** data, int r, int c){
+    matrix* res = initMat(r, c);
+    int i, j;
+    for (i=0; i<r; i++){
+        for (j=0; j<c; j++){
+            *getMat(res, i, j) = data[i][j];
+        }
+    }
+    return res;
+};
+
 matrix* addMat(matrix *a, matrix *b){
     if (a->row != b->row || a->column != b->column){
         fprintf( stderr, "Error in addMat. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
         return NULL;
     }else{
-        matrix *res = initial(a->row, a->column);
+        matrix *res = initMat(a->row, a->column);
         int i=0, j=0;
         for (i=0; i<a->row; i++){
             for (j=0; j<a->column; j++){
@@ -50,7 +61,7 @@ matrix* addMat(matrix *a, matrix *b){
 };
 
 matrix* addMatVal(matrix *a, double b){
-    matrix *res = initial(a->row, a->column);
+    matrix *res = initMat(a->row, a->column);
     int i=0, j=0;
     for (i=0; i<a->row; i++){
         for (j=0; j<a->column; j++){
@@ -65,7 +76,7 @@ matrix* dotMat(matrix *a, matrix *b){
         fprintf( stderr, "Error in dotMat. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
         return NULL;
     }else{
-        matrix *res = initial(a->row, a->column);
+        matrix *res = initMat(a->row, a->column);
         int i=0, j=0;
         for (i=0; i<a->row; i++){
             for (j=0; j<a->column; j++){
@@ -97,7 +108,7 @@ matrix* mulMat(matrix *a, matrix *b){
         fprintf( stderr, "Error in mulMat. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
         return NULL;
     }else{
-        matrix *res = initial(a->row, b->column);
+        matrix *res = initMat(a->row, b->column);
         int i=0, j=0, k=0;
         for (i=0; i<a->row; i++){
             for (j=0; j<b->column; j++){
@@ -112,7 +123,7 @@ matrix* mulMat(matrix *a, matrix *b){
 };
 
 matrix* mulMatVal(matrix *a, double b){
-    matrix *res = initial(a->row, a->column);
+    matrix *res = initMat(a->row, a->column);
     int i=0, j=0;
     for (i=0; i<a->row; i++){
         for (j=0; j<a->column; j++){
@@ -134,7 +145,7 @@ double sumMat(matrix *a){
 };
 
 matrix* tranMat(matrix* a){
-    matrix *res = initial(a->column, a->row);
+    matrix *res = initMat(a->column, a->row);
     int i=0, j=0;
     for (i=0; i<a->column; i++){
         for (j=0; j<a->val; j++){
