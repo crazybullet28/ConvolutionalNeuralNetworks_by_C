@@ -57,7 +57,8 @@ typedef struct nn_layer{
     int inputNum;   //输入数据的数目
     int outputNum;  //输出数据的数目
 
-    double** weight; // 权重数据，为一个inputNum*outputNum大小
+//    double** weight; // 权重数据，为一个inputNum*outputNum大小
+    matrix* weight;
     double* bias;   //偏置，大小为outputNum大小
 
     // 下面三者的大小同输出的维度相同
@@ -147,15 +148,11 @@ PoolLayer* initPoolLayer(int inputWidth, int inputHeight, int mapSize, int inCha
     int outW=inputWidth/mapSize;
     int outH=inputHeight/mapSize;
     int i,j;
-    poolLayer->d=(double***)malloc(outChannels*sizeof(double**));
-    poolLayer->y=(double***)malloc(outChannels*sizeof(double**));
+    poolLayer->d = (matrix**) malloc(outChannels* sizeof(matrix*));
+    poolLayer->y = (matrix**) malloc(outChannels* sizeof(matrix*));
     for(i=0;i<outChannels;i++){
-        poolLayer->d[i]=(double**)malloc(outH*sizeof(double*));
-        poolLayer->y[i]=(double**)malloc(outH*sizeof(double*));
-        for(j=0;j<outH;j++){
-            poolLayer->d[i][j]=(double*)malloc(outW*sizeof(double));
-            poolLayer->y[i][j]=(double*)malloc(outW*sizeof(double));
-        }
+        poolLayer->d[i]=initMat(outH, outW);
+        poolLayer->y[i]=initMat(outH, outW);
     }
 
     return poolLayer;
@@ -172,12 +169,11 @@ OutLayer* initOutLayer(int inputNum,int outputNum){
 
     int i,j;
     outLayer->bias = (double*) malloc(outputNum*sizeof(double));
-    outLayer->weight = (double**) malloc(outputNum*sizeof(double*));
+    outLayer->weight = initMat(inputNum, outputNum);
     srand(100);
     for (i=0; i<outputNum; i++){
-        outLayer->weight[i] = (double*) malloc(inputNum*sizeof(double));
         for (j=0; j<inputNum; j++){
-            outLayer->weight[i][j]=(rand()/(double)(RAND_MAX+1)-0.5)*2 * sqrt(6.0/(inputNum+outputNum));
+            *getMat(outLayer->weight, i, j)=(rand()/(double)(RAND_MAX+1)-0.5)*2 * sqrt(6.0/(inputNum+outputNum));
         }
     }
 
