@@ -94,7 +94,7 @@ void addMat(matrix* res, matrix* a, matrix* b){
     }
 };
 
-void addMat_relpace(matrix* a, matrix* b){
+void addMat_replace(matrix *a, matrix *b){
     if (a->row != b->row || a->column != b->column){
         fprintf( stderr, "Error in addMat. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
         return;
