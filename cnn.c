@@ -4,21 +4,24 @@
 
 #include <rpcndr.h>
 #include <math.h>
+#include <mapi.h>
 #include "matrix.c"
 
 typedef struct convolutional_layer{
     int inputWidth;
     int inputHeight;
     int mapSize;
+    int paddingForward;
+    int paddingBack;
+    int outputWidth;
+    int outputHeight;
 
     int inChannels;   //输入图像的数目
     int outChannels;  //输出图像的数目
 
     // 关于特征模板的权重分布，这里是一个四维数组, 其大小为inChannels * outChannels * mapSize * mapSize
     // 这里用四维数组，主要是为了表现全连接的形式，实际上卷积层并没有用到全连接的形式
-//    double**** mapData;     //存放特征模块的数据
     matrix*** mapWeight;
-//    double**** dmapData;    //存放特征模块的数据的局部梯度
     matrix*** dmapWeight;
 
     double* bias;   //偏置，偏置的大小，为outChannels
@@ -26,14 +29,11 @@ typedef struct convolutional_layer{
     boolean *connectModel; //连接模式（默认为全连接）
 
     // 下面三者的大小同输出的维度相同
-//    double*** v; // 进入激活函数的输入值          outChannels * (inputHeight - mapSize + 1) * (inputWidth - mapSize + 1)
-    matrix** v;
-//    double*** y; // 激活函数后神经元的输出
-    matrix** y;
+    matrix** v;     // 进入激活函数的输入值           outChannels * outputHeight * outputWidth
+    matrix** y;     // 激活函数后神经元的输出
 
     // 输出像素的局部梯度
-//    double*** d; // 网络的局部梯度,δ值
-    matrix** d;
+    matrix** d;     // 网络的局部梯度,δ值
 } CovLayer;
 
 typedef struct pooling_layer{
@@ -41,10 +41,11 @@ typedef struct pooling_layer{
     int inputHeight;
     int mapSize;
 
+//    inChannels = outChannels
     int inChannels;
     int outChannels;
 
-    int poolType;       // max pooling / mean pooling
+    int poolType;       // 0 - max pooling / 1 - mean pooling
     double *bias;
 
 //    double*** y; // output, without active
@@ -82,16 +83,18 @@ typedef struct cnn_network{
 } CNN;
 
 double activate(double num){
+//    ReLu
     return (num>0)?num:0;
 };
 
-CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChannels, int outChannels){
+CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChannels, int outChannels, int paddingForward){
     CovLayer *covLayer = (CovLayer*) malloc(sizeof(CovLayer));
     covLayer->inputHeight = inputHeight;
     covLayer->inputWidth = inputWidth;
     covLayer->mapSize = mapSize;
     covLayer->inChannels = inChannels;
     covLayer->outChannels = outChannels;
+    covLayer->paddingForward = paddingForward;
 
     covLayer->isFullConnect=1;
 
@@ -119,8 +122,10 @@ CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChann
 
     covLayer->bias = (double*) malloc(inChannels*sizeof(double));
 
-    int outW=inputWidth-mapSize+1;
-    int outH=inputHeight-mapSize+1;
+    int outW=inputWidth-mapSize+1+2*paddingForward;
+    int outH=inputHeight-mapSize+1+2*paddingForward;
+    covLayer->outputWidth = outW;
+    covLayer->outputHeight = outH;
 
     covLayer->d=(matrix**)malloc(outChannels*sizeof(matrix*));
     covLayer->v=(matrix**)malloc(outChannels*sizeof(matrix*));
@@ -128,6 +133,7 @@ CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChann
     for(j=0;j<outChannels;j++){
         covLayer->d[j]=initMat(outH, outW);
         covLayer->v[j]=initMat(outH, outW);
+        // may need modify
         covLayer->y[j]=initMat(outH, outW);
     }
 
@@ -181,8 +187,91 @@ OutLayer* initOutLayer(int inputNum,int outputNum){
     return outLayer;
 };
 
-matrix *covolution(matrix* inputMat, matrix* map){
+void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, int padding){
+    int mapSize = map->row;
+    int i,j;
 
+    if (padding==0){
+        matrix* tmp = initMat(mapSize, mapSize);
+        for (i=0; i<outH; i++){
+            for (j=0; j<outW; j++){
+                subMat(tmp, inMat, i, mapSize, j, mapSize);
+                double val = dotMatSum(tmp, map);
+                *getMatVal(v, i, j)=val;
+            }
+        }
+        freeMat(tmp);
+        return;
+    }else{
+        matrix* newInputMat = initMat(inMat->row+2*padding, inMat->column+2*padding);
+        for (i=0; i<inMat->row; i++){
+            for (j=0; j<inMat->column; j++){
+                *getMatVal(newInputMat, i+padding, j+padding) = *getMatVal(inMat, i, j);
+            }
+        }
+
+        matrix* tmp = initMat(mapSize, mapSize);
+        for (i=0; i<outH; i++){
+            for (j=0; j<outW; j++){
+                subMat(tmp, newInputMat, i, mapSize, j, mapSize);
+                double val = dotMatSum(tmp, map);
+                *getMatVal(v, i, j)=val;
+            }
+        }
+        freeMat(tmp);
+        return;
+    }
+};
+
+void convolution(CovLayer* C, matrix** inMat){
+    int i, j, k, l;
+    matrix* tmpv = initMat(C->outputHeight, C->outputWidth);
+
+    for (i=0; i<C->outChannels; i++){
+        for (j=0; j<C->inChannels; j++){
+            covolution_once(tmpv, inMat[j], C->mapWeight[j][i], C->outputHeight, C->outputWidth, C->paddingForward);
+            addMat_replace(C->v[i], tmpv);
+//            clearMat(tmpv);       // not necessary
+//            clearMat(tmpy);
+        }
+        for (k=0; k<C->outputHeight; k++){
+            for (l=0; l<C->outputWidth; l++){
+                *getMatVal(C->v[i], k, l) += C->bias[i];
+                *getMatVal(C->y[i], k, l) = activate(*getMatVal(C->v[i], k, l));
+            }
+        }
+    }
+};
+
+void pooling_max(matrix* res, matrix* inMat, int mapSize){
+    int i, j, k, l;
+    matrix* tmp = initMat(mapSize, mapSize);
+    for (i=0; i<inMat->row/mapSize; i++){
+        for (j=0; j<inMat->column/mapSize; j++){
+            double max = *getMatVal(inMat, i*mapSize, j*mapSize);
+            for (k=0; k<mapSize; k++){
+                for (l=0; l<mapSize; l++){
+                    max = (max>*getMatVal(inMat, i*mapSize+k, j*mapSize+l))?max:*getMatVal(inMat, i*mapSize+k, j*mapSize+l);
+                }
+            }
+            *getMatVal(res, i, j) = max;
+        }
+    }
+};
+
+void pooling_mean(matrix* res, matrix* inMat, int mapSize){
+    ***
+};
+
+void pooling(PoolLayer* S, matrix** inMat){
+    int i, j, k;
+    for (i=0; i<S->inChannels; i++){
+        if (S->poolType == 0){
+            pooling_max(S->y[i], inMat[i], S->mapSize);
+        }else{
+            pooling_mean(S->y[i], inMat[i], S->mapSize);
+        }
+    }
 };
 
 void train(CNN* cnn, ImgArr )
