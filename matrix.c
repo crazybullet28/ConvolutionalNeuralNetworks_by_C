@@ -255,3 +255,25 @@ void subMat(matrix* res, matrix* a, int r_start, int height, int c_start, int wi
     }
 };
 
+void rotate180Mat(matrix* res, matrix* a){
+    int i, j;
+    resetMat(res, a->row, a->column);
+    for (i=0; i<a->row/2-1; i++){
+        for (j=0; j<a->column/2-1; j++){
+            *getMatVal(res, a->row-i-1, a->column-j-1) = *getMatVal(a, i, j);
+            *getMatVal(res, i, j) = *getMatVal(a, a->row-i-1, a->column-j-1);
+        }
+    }
+};
+
+void rotate180Mat_replace(matrix* a){
+    int i, j;
+    double tmp;
+    for (i=0; i<a->row/2-1; i++){
+        for (j=0; j<a->column/2-1; j++){
+            tmp = *getMatVal(a, a->row-i-1, a->column-j-1);
+            *getMatVal(a, a->row-i-1, a->column-j-1) = *getMatVal(a, i, j);
+            *getMatVal(a, i, j) = tmp;
+        }
+    }
+};
