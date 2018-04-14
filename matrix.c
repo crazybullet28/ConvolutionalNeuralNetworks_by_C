@@ -78,6 +78,17 @@ matrix* defMat(double** data, int r, int c){
     return res;
 };
 
+
+void resizeMat(matrix* self, int r, int c){
+    if (r*c != self->row*self->column){
+        fprintf( stderr, "Error in resizeMat. Matrix size not fit: %d - %d, %d - %d\n", self->row, self->column, r, c);
+        return;
+    }else{
+        self->column=c;
+        self->row=r;
+    }
+};
+
 void addMat(matrix* res, matrix* a, matrix* b){
     if (a->row != b->row || a->column != b->column){
         fprintf( stderr, "Error in addMat. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
@@ -282,5 +293,14 @@ void rotate180Mat_replace(matrix* a){
             *getMatVal(a, a->row-i-1, a->column-j-1) = *getMatVal(a, i, j);
             *getMatVal(a, i, j) = tmp;
         }
+    }
+};
+
+void mat2arr(double* res, matrix* a){
+    int i;
+    free(res);
+    res = (double*) malloc(a->row*a->column* sizeof(double));
+    for (i=0; i<a->row*a->column; i++){
+        res[i] = a->val[i];
     }
 };
