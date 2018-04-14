@@ -25,25 +25,45 @@ matrix* initMat(int r, int c){
     res->row = r;
     res->column = c;
     res->val = (double*) malloc(r*c*sizeof(double));
+    int i;
+    for (i=0; i<r*c; i++){
+        res->val[i] = 0;
+    }
     return res;
 }
 
-void deleteMat(matrix *self){
+void freeMat(matrix *self){
     free(self->val);
     free(self);
 }
-void clearMat(matrix *self){
+
+void freeMatVal(matrix *self){
     free(self->val);
 }
 
-void resetMat(matrix* a, int r, int c){
-    if (a!=NULL){
-        clearMat(a);
-        a->row = r;
-        a->column = c;
-        a->val = (double*) malloc(r*c*sizeof(double));
+void clearMat(matrix *self){
+    int i;
+    for (i=0; i<self->row*self->column; i++){
+        self->val[i] = 0;
+    }
+}
+
+void resetMat(matrix* self, int r, int c){
+    if (self!=NULL){
+        if (self->row == r && self->column == c){
+            clearMat(self);
+        }else{
+            freeMatVal(self);
+            self->row = r;
+            self->column = c;
+            self->val = (double*) malloc(r*c*sizeof(double));
+            int i;
+            for (i=0; i<r*c; i++){
+                self->val[i] = 0;
+            }
+        }
     }else{
-        a = initMat(r, c);
+        self = initMat(r, c);
     }
 }
 
