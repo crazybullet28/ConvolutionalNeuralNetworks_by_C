@@ -28,7 +28,7 @@ matrix* initMat(int r, int c){
     return res;
 }
 
-void destruct(matrix *self){
+void deleteMat(matrix *self){
     free(self->val);
     free(self);
 }
@@ -150,6 +150,17 @@ matrix* tranMat(matrix* a){
     for (i=0; i<a->column; i++){
         for (j=0; j<a->val; j++){
             *getMatVal(res, i, j) = *getMatVal(a, j, i);
+        }
+    }
+    return res;
+};
+
+matrix* subMat(matrix* a, int r_start, int height, int c_start, int width){
+    matrix* res = initMat(height, width);
+    int i, j;
+    for (i=0; i<height; i++){
+        for (j=0; j<width; j++){
+            *getMatVal(res, i, j) = *getMatVal(a, r_start+i, c_start+j);
         }
     }
     return res;
