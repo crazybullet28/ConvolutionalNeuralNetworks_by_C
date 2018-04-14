@@ -37,10 +37,14 @@ void clearMat(matrix *self){
 }
 
 void resetMat(matrix* a, int r, int c){
-    clearMat(a);
-    a->row = r;
-    a->column = c;
-    a->val = (double*) malloc(r*c*sizeof(double));
+    if (a!=NULL){
+        clearMat(a);
+        a->row = r;
+        a->column = c;
+        a->val = (double*) malloc(r*c*sizeof(double));
+    }else{
+        a = initMat(r, c);
+    }
 }
 
 matrix* defMat(double** data, int r, int c){
