@@ -111,7 +111,7 @@ CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChann
             for (k=0; k<mapSize; k++){
                 for (l=0; l<mapSize; l++){
 //                    covLayer->mapData[i][j][k][l] = (rand()/(double)(RAND_MAX+1)-0.5)*2 * sqrt(6.0/(mapSize*mapSize*inChannels+outChannels));             // xavier initialize
-                    *getMat(covLayer->mapWeight[i][j], k, l) = (rand()/(double)(RAND_MAX+1)-0.5)*2 * sqrt(6.0/(mapSize*mapSize*inChannels+outChannels));
+                    *getMatVal(covLayer->mapWeight[i][j], k, l) = (rand()/(double)(RAND_MAX+1)-0.5)*2 * sqrt(6.0/(mapSize*mapSize*inChannels+outChannels));
                 }
             }
         }
@@ -173,7 +173,7 @@ OutLayer* initOutLayer(int inputNum,int outputNum){
     srand(100);
     for (i=0; i<outputNum; i++){
         for (j=0; j<inputNum; j++){
-            *getMat(outLayer->weight, i, j)=(rand()/(double)(RAND_MAX+1)-0.5)*2 * sqrt(6.0/(inputNum+outputNum));
+            *getMatVal(outLayer->weight, i, j)=(rand()/(double)(RAND_MAX+1)-0.5)*2 * sqrt(6.0/(inputNum+outputNum));
         }
     }
 
