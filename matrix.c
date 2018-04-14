@@ -219,14 +219,21 @@ void mulMatVal_replace(matrix *a, double b){
 
 double sumMat(matrix *a){
     double res=0;
-    int i=0, j=0;
-    for (i=0; i<a->row; i++){
-        for (j=0; j<a->column; j++){
-            res += *getMatVal(a, i, j);
-        }
+    int i=0;
+    for (i=0; i<a->row*a->column; i++){
+        res += a->val[i];
     }
     return res;
 };
+
+double maxMat(matrix* a){
+    double res=a->val[0];
+    int i;
+    for (i=1; i<a->row*a->column; i++){
+        res = (res>a->val[i])?res:a->val[i];
+    }
+    return res;
+}
 
 void tranMat(matrix* res, matrix* a){
     resetMat(res, a->column, a->row);
