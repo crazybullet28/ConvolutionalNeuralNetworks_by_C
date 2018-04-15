@@ -85,6 +85,11 @@ typedef struct cnn_network{
     double* L; // 瞬时误差能量
 } CNN;
 
+typedef struct train_opts{
+    int numepochs; // 训练的迭代次数
+    double alpha; // 学习速率
+}CNNOpts;
+
 CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChannels, int outChannels, int paddingForward);
 
 PoolLayer* initPoolLayer(int inputHeight, int inputWidth, int mapSize, int inChannels, int outChannels, int poolType);
