@@ -279,6 +279,23 @@ void cnnfw(CNN* cnn, matrix* inMat){
 
 }
 
+matrix* UpSample(matrix* mat,int multiple_c,int multiple_r,int mapsize)
+{
+    int i,j,m,n;
+    matrix* res= initMat(mapsize*multiple_r, mapsize*multiple_c, 1); // size initialization
+    for(j=0;j<mapsize*multiple_r;j=j+mapsize){
+        for(i=0;i<mapsize*multiple_c;i=i+mapsize)// 宽的扩充
+            for(m=0;m<mapsize;m++)
+                *getMatVal(res,j,i+m)=*getMatVal(mat,j/mapsize,i/mapsize)/(double)(mapsize*mapsize);
+
+        for(n=1;n<mapsize;n++)      //  高的扩充
+            for(i=0;i<multiple_c*mapsize;i++)
+                *getMatVal(res,j+n,i)=*getMatVal(res,j,i)/(double)(mapsize*mapsize);
+    }
+    return res;
+}
+
+
 void cnnbp(CNN* cnn,double* outputData)
 {
     int i,j,c,r; // 将误差保存到网络中
@@ -291,39 +308,38 @@ void cnnbp(CNN* cnn,double* outputData)
 
     // S4层，传递到S4层的误差
     // 这里没有激活函数
-    nSize outSize={cnn->S4->inputWidth/cnn->S4->mapSize,cnn->S4->inputHeight/cnn->S4->mapSize};
+    int row = cnn->S4->inputHeight/cnn->S4->mapSize;
+    int col = cnn->S4->inputWidth/cnn->S4->mapSize;
     for(i=0;i<cnn->S4->outChannels;i++)
-        for(r=0;r<outSize.r;r++)
-            for(c=0;c<outSize.c;c++)
-                for(j=0;j<cnn->O5->outputNum;j++){
-                    int wInt=i*outSize.c*outSize.r+r*outSize.c+c;
-                    cnn->S4->d[i][r][c]=cnn->S4->d[i][r][c]+cnn->O5->d[j]*cnn->O5->wData[j][wInt];
+        for(r=0;r<row;r++)
+            for(c=0;c<col;c++)
+                for(j=0;j<cnn->Out->outputNum;j++){
+                    int wInt=i*col*row+r*col+c;
+                    *getMatVal(cnn->S4->d[i], r, c) = *getMatVal(cnn->S4->d[i],r,c)+cnn->Out->d[j]*(*getMatVal(cnn->Out->weight,i,wInt));
                 }
 
     // C3层
     // 由S4层传递的各反向误差,这里只是在S4的梯度上扩充一倍
     int mapdata=cnn->S4->mapSize;
-    nSize S4dSize={cnn->S4->inputWidth/cnn->S4->mapSize,cnn->S4->inputHeight/cnn->S4->mapSize};
-    // 这里的Pooling是求平均，所以反向传递到下一神经元的误差梯度没有变化
+    // 这里的Pooling是求平均，
     for(i=0;i<cnn->C3->outChannels;i++){
-        float** C3e=UpSample(cnn->S4->d[i],S4dSize,cnn->S4->mapSize,cnn->S4->mapSize);
+        matrix* C3e = UpSample(cnn->S4->d[i],cnn->S4->inputWidth/cnn->S4->mapSize,cnn->S4->inputHeight/cnn->S4->mapSize,cnn->S4->mapSize);
         for(r=0;r<cnn->S4->inputHeight;r++)
             for(c=0;c<cnn->S4->inputWidth;c++)
-                cnn->C3->d[i][r][c]=C3e[r][c]*sigma_derivation(cnn->C3->y[i][r][c])/(float)(cnn->S4->mapSize*cnn->S4->mapSize);
-        for(r=0;r<cnn->S4->inputHeight;r++)
-            free(C3e[r]);
-        free(C3e);
+                *getMatVal(cnn->C3->d[i],r,c)=*getMatVal(C3e,r,c)*acti_derivation(*getMatVal(cnn->C3->y[i],r,c));
+        freeMat(C3e);
     }
 
     // S2层，S2层没有激活函数，这里只有卷积层有激活函数部分
     // 由卷积层传递给采样层的误差梯度，这里卷积层共有6*12个卷积模板
-    outSize.c=cnn->C3->inputWidth;
-    outSize.r=cnn->C3->inputHeight;
-    nSize inSize={cnn->S4->inputWidth,cnn->S4->inputHeight};
-    nSize mapSize={cnn->C3->mapSize,cnn->C3->mapSize};
+    int output_c=cnn->C3->inputWidth;
+    int output_r=cnn->C3->inputHeight;
+    int input_c=cnn->S4->inputWidth;
+    int input_r=cnn->S4->inputHeight;
+    int mapsize_C3=cnn->C3->mapSize;
     for(i=0;i<cnn->S2->outChannels;i++){
         for(j=0;j<cnn->C3->outChannels;j++){
-            float** corr=correlation(cnn->C3->mapData[i][j],mapSize,cnn->C3->d[j],inSize,full);
+            float** corr=correlation(cnn->C3->mapWeight[i][j],mapSize,cnn->C3->d[j],inSize,full);
             addmat(cnn->S2->d[i],cnn->S2->d[i],outSize,corr,outSize);
             for(r=0;r<outSize.r;r++)
                 free(corr[r]);
