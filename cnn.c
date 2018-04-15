@@ -6,81 +6,8 @@
 #include <math.h>
 #include <mapi.h>
 #include "matrix.c"
+#include "cnn.h"
 
-typedef struct convolutional_layer{
-    int inputWidth;
-    int inputHeight;
-    int mapSize;
-    int paddingForward;
-    int paddingBack;
-    int outputWidth;
-    int outputHeight;
-
-    int inChannels;   //输入图像的数目
-    int outChannels;  //输出图像的数目
-
-    // 关于特征模板的权重分布，这里是一个四维数组, 其大小为inChannels * outChannels * mapSize * mapSize
-    // 这里用四维数组，主要是为了表现全连接的形式，实际上卷积层并没有用到全连接的形式
-    matrix*** mapWeight;
-    matrix*** dmapWeight;
-
-    double* bias;   //偏置，偏置的大小，为outChannels
-    boolean isFullConnect; //是否为全连接
-    boolean *connectModel; //连接模式（默认为全连接）
-
-    // 下面三者的大小同输出的维度相同
-    matrix** v;     // 进入激活函数的输入值           outChannels * outputHeight * outputWidth
-    matrix** y;     // 激活函数后神经元的输出
-
-    // 输出像素的局部梯度
-    matrix** d;     // 网络的局部梯度,δ值
-} CovLayer;
-
-typedef struct pooling_layer{
-    int inputWidth;
-    int inputHeight;
-    int mapSize;
-
-//    inChannels = outChannels
-    int inChannels;
-    int outChannels;
-
-    int poolType;       // 0 - max pooling / 1 - mean pooling
-    double *bias;
-
-//    double*** y; // output, without active
-    matrix** y;
-//    double*** d; // local gradient
-    matrix** d;
-} PoolLayer;
-
-typedef struct nn_layer{
-    int inputNum;   //输入数据的数目
-    int outputNum;  //输出数据的数目
-
-//    double** weight; // 权重数据，为一个inputNum*outputNum大小
-    matrix* weight;
-    double* bias;   //偏置，大小为outputNum大小
-
-    // 下面三者的大小同输出的维度相同
-    double* v; // 进入激活函数的输入值
-    double* y; // 激活函数后神经元的输出
-    double* d; // 网络的局部梯度,δ值
-
-    boolean isFullConnect; //是否为全连接
-} OutLayer;
-
-typedef struct cnn_network{
-    int layerNum;
-    CovLayer* C1;
-    PoolLayer* S2;
-    CovLayer* C3;
-    PoolLayer* S4;
-    OutLayer* Out;
-
-    double* e; // 训练误差
-    double* L; // 瞬时误差能量
-} CNN;
 
 double activate(double num){
 //    ReLu
@@ -350,6 +277,78 @@ void nnForward(OutLayer* O, const double* inArr){
 
 void cnnfw(CNN* cnn, matrix* inMat){
 
+}
+
+void cnnbp(CNN* cnn,double* outputData)
+{
+    int i,j,c,r; // 将误差保存到网络中
+    for(i=0;i<cnn->Out->outputNum;i++)
+        cnn->e[i]=cnn->Out->y[i]-outputData[i];
+
+    // Output layer
+    for(i=0;i<cnn->Out->outputNum;i++)
+        cnn->Out->d[i]=cnn->e[i]*acti_derivation(cnn->Out->y[i]);
+
+    // S4层，传递到S4层的误差
+    // 这里没有激活函数
+    nSize outSize={cnn->S4->inputWidth/cnn->S4->mapSize,cnn->S4->inputHeight/cnn->S4->mapSize};
+    for(i=0;i<cnn->S4->outChannels;i++)
+        for(r=0;r<outSize.r;r++)
+            for(c=0;c<outSize.c;c++)
+                for(j=0;j<cnn->O5->outputNum;j++){
+                    int wInt=i*outSize.c*outSize.r+r*outSize.c+c;
+                    cnn->S4->d[i][r][c]=cnn->S4->d[i][r][c]+cnn->O5->d[j]*cnn->O5->wData[j][wInt];
+                }
+
+    // C3层
+    // 由S4层传递的各反向误差,这里只是在S4的梯度上扩充一倍
+    int mapdata=cnn->S4->mapSize;
+    nSize S4dSize={cnn->S4->inputWidth/cnn->S4->mapSize,cnn->S4->inputHeight/cnn->S4->mapSize};
+    // 这里的Pooling是求平均，所以反向传递到下一神经元的误差梯度没有变化
+    for(i=0;i<cnn->C3->outChannels;i++){
+        float** C3e=UpSample(cnn->S4->d[i],S4dSize,cnn->S4->mapSize,cnn->S4->mapSize);
+        for(r=0;r<cnn->S4->inputHeight;r++)
+            for(c=0;c<cnn->S4->inputWidth;c++)
+                cnn->C3->d[i][r][c]=C3e[r][c]*sigma_derivation(cnn->C3->y[i][r][c])/(float)(cnn->S4->mapSize*cnn->S4->mapSize);
+        for(r=0;r<cnn->S4->inputHeight;r++)
+            free(C3e[r]);
+        free(C3e);
+    }
+
+    // S2层，S2层没有激活函数，这里只有卷积层有激活函数部分
+    // 由卷积层传递给采样层的误差梯度，这里卷积层共有6*12个卷积模板
+    outSize.c=cnn->C3->inputWidth;
+    outSize.r=cnn->C3->inputHeight;
+    nSize inSize={cnn->S4->inputWidth,cnn->S4->inputHeight};
+    nSize mapSize={cnn->C3->mapSize,cnn->C3->mapSize};
+    for(i=0;i<cnn->S2->outChannels;i++){
+        for(j=0;j<cnn->C3->outChannels;j++){
+            float** corr=correlation(cnn->C3->mapData[i][j],mapSize,cnn->C3->d[j],inSize,full);
+            addmat(cnn->S2->d[i],cnn->S2->d[i],outSize,corr,outSize);
+            for(r=0;r<outSize.r;r++)
+                free(corr[r]);
+            free(corr);
+        }
+        /*
+        for(r=0;r<cnn->C3->inputHeight;r++)
+            for(c=0;c<cnn->C3->inputWidth;c++)
+                // 这里本来用于采样的激活
+        */
+    }
+
+    // C1层，卷积层
+    mapdata=cnn->S2->mapSize;
+    nSize S2dSize={cnn->S2->inputWidth/cnn->S2->mapSize,cnn->S2->inputHeight/cnn->S2->mapSize};
+    // 这里的Pooling是求平均，所以反向传递到下一神经元的误差梯度没有变化
+    for(i=0;i<cnn->C1->outChannels;i++){
+        float** C1e=UpSample(cnn->S2->d[i],S2dSize,cnn->S2->mapSize,cnn->S2->mapSize);
+        for(r=0;r<cnn->S2->inputHeight;r++)
+            for(c=0;c<cnn->S2->inputWidth;c++)
+                cnn->C1->d[i][r][c]=C1e[r][c]*sigma_derivation(cnn->C1->y[i][r][c])/(float)(cnn->S2->mapSize*cnn->S2->mapSize);
+        for(r=0;r<cnn->S2->inputHeight;r++)
+            free(C1e[r]);
+        free(C1e);
+    }
 }
 
 void trainModel(CNN* cnn){
