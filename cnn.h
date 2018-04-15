@@ -38,6 +38,8 @@ typedef struct pooling_layer{
     int inputWidth;
     int inputHeight;
     int mapSize;
+    int outputWidth;
+    int outputHeight;
 
 //    inChannels = outChannels
     int inChannels;
@@ -83,6 +85,11 @@ typedef struct cnn_network{
     double* L; // 瞬时误差能量
 } CNN;
 
+typedef struct train_opts{
+    int numepochs; // 训练的迭代次数
+    double alpha; // 学习速率
+}CNNOpts;
+
 CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChannels, int outChannels, int paddingForward);
 
 PoolLayer* initPoolLayer(int inputHeight, int inputWidth, int mapSize, int inChannels, int outChannels, int poolType);
@@ -103,9 +110,7 @@ void pooling_mean(matrix* res, matrix* inMat, int mapSize);
 
 void pooling(PoolLayer* S, matrix** inMat);
 
-void nnForward(OutLayer* O, const double* inArr);
-
-void nnBackward(CNN* cnn, double* outputData);
+void nnForward(OutLayer* O, double* inArr);
 
 void softMax(double* outArr, const double* inArr, int outNum);
 
