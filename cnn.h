@@ -38,6 +38,8 @@ typedef struct pooling_layer{
     int inputWidth;
     int inputHeight;
     int mapSize;
+    int outputWidth;
+    int outputHeight;
 
 //    inChannels = outChannels
     int inChannels;
@@ -103,9 +105,7 @@ void pooling_mean(matrix* res, matrix* inMat, int mapSize);
 
 void pooling(PoolLayer* S, matrix** inMat);
 
-void nnForward(OutLayer* O, const double* inArr);
-
-void nnBackward(CNN* cnn, double* outputData);
+void nnForward(OutLayer* O, double* inArr);
 
 void softMax(double* outArr, const double* inArr, int outNum);
 
