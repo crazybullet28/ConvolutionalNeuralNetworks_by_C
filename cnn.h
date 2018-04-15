@@ -22,7 +22,7 @@ typedef struct convolutional_layer{
     matrix*** mapWeight;
     matrix*** dmapWeight;
 
-    double* bias;   //偏置，偏置的大小，为outChannels
+    float* bias;   //偏置，偏置的大小，为outChannels
     boolean isFullConnect; //是否为全连接
     boolean *connectModel; //连接模式（默认为全连接）
 
@@ -46,11 +46,11 @@ typedef struct pooling_layer{
     int outChannels;
 
     int poolType;       // 0 - max pooling / 1 - mean pooling
-    double *bias;
+    float *bias;
 
-//    double*** y; // output, without active
+//    float*** y; // output, without active
     matrix** y;
-//    double*** d; // local gradient
+//    float*** d; // local gradient
     matrix** d;
 } PoolLayer;
 
@@ -58,17 +58,17 @@ typedef struct nn_layer{
     int inputNum;   //输入数据的数目
     int outputNum;  //输出数据的数目
 
-//    double** weight; // 权重数据，为一个inputNum*outputNum大小
+//    float** weight; // 权重数据，为一个inputNum*outputNum大小
     matrix* weight;
-    double* bias;   //偏置，大小为outputNum大小
+    float* bias;   //偏置，大小为outputNum大小
 
 //    matrix* dweight;   // 权重梯度
 
     // 下面三者的大小同输出的维度相同
-    double* v; // 进入激活函数的输入值
-    double* y; // 激活函数后神经元的输出
-    double* p; // softMax(y)
-    double* d; // 网络的局部梯度,δ值
+    float* v; // 进入激活函数的输入值
+    float* y; // 激活函数后神经元的输出
+    float* p; // softMax(y)
+    float* d; // 网络的局部梯度,δ值
 
     boolean isFullConnect; //是否为全连接
 } OutLayer;
@@ -81,13 +81,13 @@ typedef struct cnn_network{
     PoolLayer* S4;
     OutLayer* Out;
 
-    double* e; // 训练误差
-    double* L; // 瞬时误差能量
+    float* e; // 训练误差
+    float* L; // 瞬时误差能量
 } CNN;
 
 typedef struct train_opts{
     int numepochs; // 训练的迭代次数
-    double alpha; // 学习速率
+    float alpha; // 学习速率
 }CNNOpts;
 
 CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChannels, int outChannels, int paddingForward);
@@ -110,9 +110,9 @@ void pooling_mean(matrix* res, matrix* inMat, int mapSize);
 
 void pooling(PoolLayer* S, matrix** inMat);
 
-void nnForward(OutLayer* O, double* inArr);
+void nnForward(OutLayer* O, float* inArr);
 
-void softMax(double* outArr, const double* inArr, int outNum);
+void softMax(float* outArr, const float* inArr, int outNum);
 
 
 

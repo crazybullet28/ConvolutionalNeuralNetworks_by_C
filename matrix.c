@@ -8,11 +8,11 @@
 typedef struct matrix{
     int row;
     int column;
-    double * val;
-//    double* (*getMatVal)(struct matrix *self, int r, int c);
+    float * val;
+//    float* (*getMatVal)(struct matrix *self, int r, int c);
 } matrix;
 
-double* getMatVal(matrix *self, int r, int c){
+float* getMatVal(matrix *self, int r, int c){
     if (r>=self->row || c>=self->column){
         fprintf( stderr, "Error in getMatVal. Size out of range: %d - %d, %d - %d\n", self->row, self->column, r, c);
     }else{
@@ -24,7 +24,7 @@ matrix* initMat(int r, int c, int type){        // if type = 1, then initial all
     matrix *res = (matrix*) malloc(sizeof(matrix));
     res->row = r;
     res->column = c;
-    res->val = (double*) malloc(r*c*sizeof(double));
+    res->val = (float*) malloc(r*c*sizeof(float));
     if (type==1){
         int i;
         for (i=0; i<r*c; i++){
@@ -58,7 +58,7 @@ void resetMat(matrix* self, int r, int c){
             freeMatVal(self);
             self->row = r;
             self->column = c;
-            self->val = (double*) malloc(r*c*sizeof(double));
+            self->val = (float*) malloc(r*c*sizeof(float));
             int i;
             for (i=0; i<r*c; i++){
                 self->val[i] = 0;
@@ -69,7 +69,7 @@ void resetMat(matrix* self, int r, int c){
     }
 }
 
-matrix* defMat(double** data, int r, int c){
+matrix* defMat(float** data, int r, int c){
     matrix* res = initMat(r, c, 0);
     int i, j;
     for (i=0; i<r; i++){
@@ -122,7 +122,7 @@ void addMat_replace(matrix *a, matrix *b){
     }
 };
 
-void addMatVal(matrix* res, matrix *a, double b){
+void addMatVal(matrix* res, matrix *a, float b){
     resetMat(res, a->row, a->column);
     int i=0, j=0;
     for (i=0; i<a->row; i++){
@@ -133,7 +133,7 @@ void addMatVal(matrix* res, matrix *a, double b){
     return;
 };
 
-void addMatVal_replace(matrix *a, double b){
+void addMatVal_replace(matrix *a, float b){
     int i=0, j=0;
     for (i=0; i<a->row; i++){
         for (j=0; j<a->column; j++){
@@ -174,12 +174,12 @@ void dotMat_replace(matrix *a, matrix *b){
     }
 };
 
-double dotMatSum(matrix *a, matrix *b){
+float dotMatSum(matrix *a, matrix *b){
     if (a->row != b->row || a->column != b->column){
         fprintf( stderr, "Error in dotMatSum. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
         return NULL;
     }else{
-        double sum=0;
+        float sum=0;
         int i=0, j=0;
         for (i=0; i<a->row; i++){
             for (j=0; j<a->column; j++){
@@ -209,7 +209,7 @@ void mulMat(matrix* res, matrix *a, matrix *b){
     }
 };
 
-void mulMatVal(matrix* res, matrix *a, double b){
+void mulMatVal(matrix* res, matrix *a, float b){
     resetMat(res, a->row, a->column);
     int i=0, j=0;
     for (i=0; i<a->row; i++){
@@ -220,7 +220,7 @@ void mulMatVal(matrix* res, matrix *a, double b){
     return;
 };
 
-void mulMatVal_replace(matrix *a, double b){
+void mulMatVal_replace(matrix *a, float b){
     int i=0, j=0;
     for (i=0; i<a->row; i++){
         for (j=0; j<a->column; j++){
@@ -230,8 +230,8 @@ void mulMatVal_replace(matrix *a, double b){
     return;
 };
 
-double sumMat(matrix *a){
-    double res=0;
+float sumMat(matrix *a){
+    float res=0;
     int i=0;
     for (i=0; i<a->row*a->column; i++){
         res += a->val[i];
@@ -239,8 +239,8 @@ double sumMat(matrix *a){
     return res;
 };
 
-double maxMat(matrix* a){
-    double res=a->val[0];
+float maxMat(matrix* a){
+    float res=a->val[0];
     int i;
     for (i=1; i<a->row*a->column; i++){
         res = (res>a->val[i])?res:a->val[i];
@@ -288,7 +288,7 @@ void rotate180Mat(matrix* res, matrix* a){
 
 void rotate180Mat_replace(matrix* a){
     int i, j;
-    double tmp;
+    float tmp;
     for (i=0; i<a->row/2-1; i++){
         for (j=0; j<a->column/2-1; j++){
             tmp = *getMatVal(a, a->row-i-1, a->column-j-1);
@@ -298,16 +298,16 @@ void rotate180Mat_replace(matrix* a){
     }
 };
 
-void mat2arr(double* res, matrix* a){
+void mat2arr(float* res, matrix* a){
     int i;
     free(res);
-    res = (double*) malloc(a->row*a->column* sizeof(double));
+    res = (float*) malloc(a->row*a->column* sizeof(float));
     for (i=0; i<a->row*a->column; i++){
         res[i] = a->val[i];
     }
 };
 
-//void arr2Mat(matrix* res, double* a, int r, int c){
+//void arr2Mat(matrix* res, float* a, int r, int c){
 //    resetMat(res, r, c);
 //
 //};

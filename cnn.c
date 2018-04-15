@@ -11,18 +11,18 @@
 #include "minst.h"
 
 
-double activate(double num){
+float activate(float num){
 //    ReLu
     return (num>0)?num:0;
 };
 
-double acti_derivation(double y){
+float acti_derivation(float y){
     return (y>0)?1:0;
 }
 
 
-void softMax(double* outArr, const double* inArr, int outNum){
-    double sum=0, tmp;
+void softMax(float* outArr, const float* inArr, int outNum){
+    float sum=0, tmp;
     int i;
     for (i=0; i<outNum; i++){
         tmp = exp(inArr[i]);
@@ -60,14 +60,14 @@ CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChann
             covLayer->dmapWeight[i][j] = initMat(mapSize, mapSize, 0);
             for (k=0; k<mapSize; k++){
                 for (l=0; l<mapSize; l++){
-//                    covLayer->mapData[i][j][k][l] = (rand()/(double)(RAND_MAX+1)-0.5)*2 * sqrt(6.0/(mapSize*mapSize*inChannels+outChannels));             // xavier initialize
-                    *getMatVal(covLayer->mapWeight[i][j], k, l) = (rand()/(double)(RAND_MAX+1)-0.5)*2 * sqrt(6.0/(mapSize*mapSize*inChannels+outChannels));
+//                    covLayer->mapData[i][j][k][l] = (rand()/(float)(RAND_MAX+1)-0.5)*2 * sqrt(6.0/(mapSize*mapSize*inChannels+outChannels));             // xavier initialize
+                    *getMatVal(covLayer->mapWeight[i][j], k, l) = (rand()/(float)(RAND_MAX+1)-0.5)*2 * sqrt(6.0/(mapSize*mapSize*inChannels+outChannels));
                 }
             }
         }
     }
 
-    covLayer->bias = (double*) malloc(inChannels*sizeof(double));
+    covLayer->bias = (float*) malloc(inChannels*sizeof(float));
 
     int outW=inputWidth-mapSize+1+2*paddingForward;
     int outH=inputHeight-mapSize+1+2*paddingForward;
@@ -96,7 +96,7 @@ PoolLayer* initPoolLayer(int inputHeight, int inputWidth, int mapSize, int inCha
     poolLayer->outChannels = outChannels;
     poolLayer->poolType = poolType;
 
-//    poolLayer->bias = (double*)malloc(outChannels* sizeof(double));
+//    poolLayer->bias = (float*)malloc(outChannels* sizeof(float));
 
     int outW=inputWidth/mapSize;
     int outH=inputHeight/mapSize;
@@ -118,19 +118,19 @@ OutLayer* initOutLayer(int inputNum,int outputNum){
     outLayer->inputNum = inputNum;
     outLayer->outputNum = outputNum;
 
-    outLayer->d = (double*) malloc(outputNum*sizeof(double));
-    outLayer->v = (double*) malloc(outputNum*sizeof(double));
-    outLayer->y = (double*) malloc(outputNum*sizeof(double));
-    outLayer->p = (double*) malloc(outputNum*sizeof(double));
+    outLayer->d = (float*) malloc(outputNum*sizeof(float));
+    outLayer->v = (float*) malloc(outputNum*sizeof(float));
+    outLayer->y = (float*) malloc(outputNum*sizeof(float));
+    outLayer->p = (float*) malloc(outputNum*sizeof(float));
 
     int i,j;
-    outLayer->bias = (double*) malloc(outputNum*sizeof(double));
+    outLayer->bias = (float*) malloc(outputNum*sizeof(float));
     outLayer->weight = initMat(inputNum, outputNum, 0);
 //    outLayer->dweight = initMat(inputNum, outputNum, 0);
 //    srand(100);
     for (i=0; i<outputNum; i++){
         for (j=0; j<inputNum; j++){
-            *getMatVal(outLayer->weight, i, j)=(rand()/(double)(RAND_MAX+1)-0.5)*2 * sqrt(6.0/(inputNum+outputNum));
+            *getMatVal(outLayer->weight, i, j)=(rand()/(float)(RAND_MAX+1)-0.5)*2 * sqrt(6.0/(inputNum+outputNum));
         }
     }
 
@@ -155,7 +155,7 @@ void cnn_setup(CNN* cnn, int inputHeight, int inputWidth, int outNum){
     inW = cnn->S4->outputWidth;
     cnn->Out = initOutLayer(inH*inW * 12, outNum);        // 300 -> 10
 
-    cnn->e=(double *)malloc(cnn->Out->outputNum*sizeof(double));
+    cnn->e=(float *)malloc(cnn->Out->outputNum*sizeof(float));
 };
 
 
@@ -170,7 +170,7 @@ void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, 
         for (i=0; i<outH; i++){
             for (j=0; j<outW; j++){
                 subMat(tmp, inMat, i, mapSize, j, mapSize);
-                double val = dotMatSum(tmp, map);
+                float val = dotMatSum(tmp, map);
                 *getMatVal(v, i, j)=val;
             }
         }
@@ -188,7 +188,7 @@ void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, 
         for (i=0; i<outH; i++){
             for (j=0; j<outW; j++){
                 subMat(tmp, newInputMat, i, mapSize, j, mapSize);
-                double val = dotMatSum(tmp, map);
+                float val = dotMatSum(tmp, map);
                 *getMatVal(v, i, j)=val;
             }
         }
@@ -221,7 +221,7 @@ void pooling_max(matrix* res, matrix* inMat, int mapSize){
     int i, j, k, l;
     for (i=0; i<inMat->row/mapSize; i++){
         for (j=0; j<inMat->column/mapSize; j++){
-            double max = *getMatVal(inMat, i*mapSize, j*mapSize);
+            float max = *getMatVal(inMat, i*mapSize, j*mapSize);
             for (k=0; k<mapSize; k++){
                 for (l=0; l<mapSize; l++){
                     max = (max>*getMatVal(inMat, i*mapSize+k, j*mapSize+l))?max:*getMatVal(inMat, i*mapSize+k, j*mapSize+l);
@@ -236,7 +236,7 @@ void pooling_mean(matrix* res, matrix* inMat, int mapSize){
     int i,j,k,l;
     for (i=0; i<inMat->row/mapSize; i++) {
         for (j = 0; j < inMat->column / mapSize; j++) {
-            double sum = 0.0;
+            float sum = 0.0;
             for (k = 0; k < mapSize; k++) {
                 for (l = 0; l < mapSize; l++) {
                     sum += *getMatVal(inMat, i * mapSize + k, j * mapSize + l);
@@ -258,7 +258,7 @@ void pooling(PoolLayer* S, matrix** inMat){
     }
 };
 
-void nnForward(OutLayer* O, double* inArr){
+void nnForward(OutLayer* O, float* inArr){
     matrix inMat, vMat;     // no need to free
     inMat.row=1;
     inMat.column=O->inputNum;
@@ -278,7 +278,7 @@ void nnForward(OutLayer* O, double* inArr){
     softMax(O->p, O->y, O->outputNum);
 };
 
-double computeLoss(CNN* cnn, ){};
+float computeLoss(CNN* cnn, ){};
 
 void cnnfw(CNN* cnn, matrix* inMat){       // only one matrix a time.           outArr has already been malloc
     matrix** input = (matrix**)malloc(sizeof(matrix*));
@@ -288,11 +288,11 @@ void cnnfw(CNN* cnn, matrix* inMat){       // only one matrix a time.           
     convolution(cnn->C3, cnn->S2->y);
     pooling(cnn->S4, cnn->C3->y);
 
-    double nn_input[cnn->Out->inputNum];
+    float nn_input[cnn->Out->inputNum];
     int i;
     int tmpLength = cnn->S4->outputWidth * cnn->S4->outputHeight
     for (i=0; i<cnn->S4->outChannels; i++){
-        memcpy(&nn_input[i*tmpLength], cnn->S4->y[i], tmpLength*sizeof(double));
+        memcpy(&nn_input[i*tmpLength], cnn->S4->y[i], tmpLength*sizeof(float));
     }
     nnForward(cnn->Out, nn_input);
 
@@ -307,17 +307,17 @@ matrix* UpSample(matrix* mat,int multiple_c,int multiple_r,int mapsize)
     for(j=0;j<mapsize*multiple_r;j=j+mapsize){
         for(i=0;i<mapsize*multiple_c;i=i+mapsize)// 宽的扩充
             for(m=0;m<mapsize;m++)
-                *getMatVal(res,j,i+m)=*getMatVal(mat,j/mapsize,i/mapsize)/(double)(mapsize*mapsize);
+                *getMatVal(res,j,i+m)=*getMatVal(mat,j/mapsize,i/mapsize)/(float)(mapsize*mapsize);
 
         for(n=1;n<mapsize;n++)      //  高的扩充
             for(i=0;i<multiple_c*mapsize;i++)
-                *getMatVal(res,j+n,i)=*getMatVal(res,j,i)/(double)(mapsize*mapsize);
+                *getMatVal(res,j+n,i)=*getMatVal(res,j,i)/(float)(mapsize*mapsize);
     }
     return res;
 }
 
 
-void cnnbp(CNN* cnn,double* outputData)
+void cnnbp(CNN* cnn,float* outputData)
 {
     int i,j,c,r; // 将误差保存到网络中
     for(i=0;i<cnn->Out->outputNum;i++)
@@ -390,7 +390,7 @@ void cnnbp(CNN* cnn,double* outputData)
 }
 
 void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts,int trainNum){
-    cnn->L=(double *)malloc(trainNum*sizeof(double));
+    cnn->L=(float *)malloc(trainNum*sizeof(float));
     int e;
     for (e=0; e<opts.numepochs; e++){
         int n;

@@ -55,7 +55,7 @@ ImgArr read_Img(const char* filename){   // 读入图像
             {
                 unsigned char temp = 0;
                 fread((char*) &temp, sizeof(temp),1,fp);
-                *getMatVal(imgarr->ImgPtr[i], r, c) = (double) temp/255.0;
+                *getMatVal(imgarr->ImgPtr[i], r, c) = (float) temp/255.0;
 //                imgarr->ImgPtr[i].ImgData[r][c]=(float)temp/255.0;
             }
         }
