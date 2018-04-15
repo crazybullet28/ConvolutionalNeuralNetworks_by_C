@@ -75,7 +75,6 @@ typedef struct cnn_network{
     CovLayer* C3;
     PoolLayer* S4;
     CovLayer* C5;
-    OutLayer* F6;
     OutLayer* Out;
 
     double* e; // 训练误差
