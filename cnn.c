@@ -339,6 +339,7 @@ void cnnbp(CNN* cnn,double* outputData)
     int mapsize_C3=cnn->C3->mapSize;
     for(i=0;i<cnn->S2->outChannels;i++){
         for(j=0;j<cnn->C3->outChannels;j++){
+            matrix* expand_mat =
             float** corr=correlation(cnn->C3->mapWeight[i][j],mapSize,cnn->C3->d[j],inSize,full);
             addmat(cnn->S2->d[i],cnn->S2->d[i],outSize,corr,outSize);
             for(r=0;r<outSize.r;r++)
