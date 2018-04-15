@@ -92,19 +92,18 @@ double acti_derivation(double y){
     return (y>0)?1:0;
 }
 
-matrix* softmax_classifier(matrix* input){
-    int i,j;
-    double sum;
-    matrix *res = initMat(input->row, input->column, 1);
-    for(i=0;i<input->row;i++){
-        sum=0;
-        for(j=0;j<input->row;j++){
-            sum += exp(*getMatVal(input,j,0));
-        }
-        res->val[i] = exp(*getMatVal(input,i,0))/sum;
+void softMax(double* outArr, const double* inArr, int outNum){
+    double sum=0, tmp;
+    int i;
+    for (i=0; i<outNum; i++){
+        tmp = exp(inArr[i]);
+        outArr[i] = tmp;
+        sum += tmp;
     }
-    return res;
-}
+    for (i=0; i<outNum; i++){
+        outArr[i] /= sum;
+    }
+};
 
 CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChannels, int outChannels, int paddingForward){
     CovLayer *covLayer = (CovLayer*) malloc(sizeof(CovLayer));
