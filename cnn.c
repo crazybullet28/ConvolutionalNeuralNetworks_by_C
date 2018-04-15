@@ -5,6 +5,7 @@
 #include <rpcndr.h>
 #include <math.h>
 #include <mapi.h>
+#include <mem.h>
 #include "matrix.c"
 #include "cnn.h"
 
@@ -13,7 +14,6 @@ double activate(double num){
 //    ReLu
     return (num>0)?num:0;
 };
-
 
 double acti_derivation(double y){
     return (y>0)?1:0;
@@ -99,6 +99,8 @@ PoolLayer* initPoolLayer(int inputHeight, int inputWidth, int mapSize, int inCha
 
     int outW=inputWidth/mapSize;
     int outH=inputHeight/mapSize;
+    poolLayer->outputWidth = outW;
+    poolLayer->outputHeight = outH;
     int i,j;
     poolLayer->d = (matrix**) malloc(outChannels* sizeof(matrix*));
     poolLayer->y = (matrix**) malloc(outChannels* sizeof(matrix*));
@@ -142,14 +144,14 @@ void cnn_setup(CNN* cnn, int inputHeight, int inputWidth, int outNum){
     inH = cnn->C1->outputHeight;
     inW = cnn->C1->outputWidth;
     cnn->S2 = initPoolLayer(inH, inW, 2, 6, 6, 0);      // 28*28 -> 14*14
-    inH /= cnn->S2->mapSize;
-    inW /= cnn->S2->mapSize;
+    inH = cnn->S2->outputHeight;
+    inW = cnn->S2->outputWidth;
     cnn->C3 = initCovLayer(inH, inW, 5, 6, 12, 0);      // 14*14 -> 10*10
     inH = cnn->C3->outputHeight;
     inW = cnn->C3->outputWidth;
     cnn->S4 = initPoolLayer(inH, inW, 2, 12, 12, 0);    // 10*10 -> 5*5
-    inH /= cnn->S4->mapSize;
-    inW /= cnn->S4->mapSize;
+    inH = cnn->S4->outputHeight;
+    inW = cnn->S4->outputWidth;
     cnn->Out = initOutLayer(inH*inW * 12, outNum);        // 300 -> 10
 
     cnn->e=(double *)malloc(cnn->Out->outputNum*sizeof(double));
@@ -255,7 +257,7 @@ void pooling(PoolLayer* S, matrix** inMat){
     }
 };
 
-void nnForward(OutLayer* O, const double* inArr){
+void nnForward(OutLayer* O, double* inArr){
     matrix inMat, vMat;     // no need to free
     inMat.row=1;
     inMat.column=O->inputNum;
@@ -275,8 +277,26 @@ void nnForward(OutLayer* O, const double* inArr){
     softMax(O->p, O->y, O->outputNum);
 };
 
-void cnnfw(CNN* cnn, matrix* inMat){
+double computeLoss(CNN* cnn, ){};
 
+void cnnfw(CNN* cnn, matrix* inMat, double* outArr){       // only one matrix a time.           outArr has already been malloc
+    matrix** input = (matrix**)malloc(sizeof(matrix*));
+    input[0] = inMat;
+    convolution(cnn->C1, input);
+    pooling(cnn->S2, cnn->C1->y);
+    convolution(cnn->C3, cnn->S2->y);
+    pooling(cnn->S4, cnn->C3->y);
+
+    double nn_input[cnn->Out->inputNum];
+    int i;
+    int tmpLength = cnn->S4->outputWidth * cnn->S4->outputHeight
+    for (i=0; i<cnn->S4->outChannels; i++){
+        memcpy(&nn_input[i*tmpLength], cnn->S4->y[i], tmpLength*sizeof(double));
+    }
+    nnForward(cnn->Out, nn_input);
+
+    freeMat(input[0]);
+    free(input);
 }
 
 void cnnbp(CNN* cnn,double* outputData)
@@ -351,7 +371,7 @@ void cnnbp(CNN* cnn,double* outputData)
     }
 }
 
-void trainModel(CNN* cnn){
+void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts,int trainNum){
 
 }
 
