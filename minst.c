@@ -149,7 +149,7 @@ void save_Img(ImgArr imgarr,char* filedir){  // 将图像数据保存成文件
         assert(fp);
 
         for (j=0; j<imgarr->ImgPtr[i]->row*imgarr->ImgPtr[i]->column; j++){
-            fwrite(imgarr->ImgPtr[i]->val, sizeof(double), imgarr->ImgPtr[i]->row*imgarr->ImgPtr[i]->column, fp);
+            fwrite((float*)imgarr->ImgPtr[i]->val, sizeof(float), imgarr->ImgPtr[i]->row*imgarr->ImgPtr[i]->column, fp);
         }
 
 //        for(r=0;r<imgarr->ImgPtr[i].r;r++)
