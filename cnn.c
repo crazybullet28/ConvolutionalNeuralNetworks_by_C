@@ -8,6 +8,7 @@
 #include <mem.h>
 #include "matrix.c"
 #include "cnn.h"
+#include "minst.h"
 
 
 double activate(double num){
@@ -279,7 +280,7 @@ void nnForward(OutLayer* O, double* inArr){
 
 double computeLoss(CNN* cnn, ){};
 
-void cnnfw(CNN* cnn, matrix* inMat, double* outArr){       // only one matrix a time.           outArr has already been malloc
+void cnnfw(CNN* cnn, matrix* inMat){       // only one matrix a time.           outArr has already been malloc
     matrix** input = (matrix**)malloc(sizeof(matrix*));
     input[0] = inMat;
     convolution(cnn->C1, input);
@@ -388,6 +389,18 @@ void cnnbp(CNN* cnn,double* outputData)
 }
 
 void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts,int trainNum){
+    cnn->L=(double *)malloc(trainNum*sizeof(double));
+    int e;
+    for (e=0; e<opts.numepochs; e++){
+        int n;
+        for (n=0; n<trainNum; n++){
+//            matrix* inputMat = defMat(inputData->ImgPtr[n].ImgData, inputData->ImgPtr[n].r, inputData->ImgPtr[n].c);
+//            freeMat(inputMat);
+            cnnfw(cnn, inputData->ImgPtr[n]);
 
+
+
+        }
+    }
 }
 
