@@ -92,19 +92,19 @@ double acti_derivation(double y){
     return (y>0)?1:0;
 }
 
-matrix* softmax_classifier(matrix* input){
-    int i,j;
-    double sum;
-    matrix *res = initMat(input->row, input->column, 1);
-    for(i=0;i<input->row;i++){
-        sum=0;
-        for(j=0;j<input->row;j++){
-            sum += exp(*getMatVal(input,j,0));
-        }
-        res->val[i] = exp(*getMatVal(input,i,0))/sum;
+
+void softMax(double* outArr, const double* inArr, int outNum){
+    double sum=0, tmp;
+    int i;
+    for (i=0; i<outNum; i++){
+        tmp = exp(inArr[i]);
+        outArr[i] = tmp;
+        sum += tmp;
     }
-    return res;
-}
+    for (i=0; i<outNum; i++){
+        outArr[i] /= sum;
+    }
+};
 
 CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChannels, int outChannels, int paddingForward){
     CovLayer *covLayer = (CovLayer*) malloc(sizeof(CovLayer));
@@ -159,7 +159,7 @@ CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChann
     return covLayer;
 };
 
-PoolLayer* initPoolLayer(int inputWidth, int inputHeight, int mapSize, int inChannels, int outChannels, int poolType){
+PoolLayer* initPoolLayer(int inputHeight, int inputWidth, int mapSize, int inChannels, int outChannels, int poolType){
     PoolLayer* poolLayer = (PoolLayer*) malloc(sizeof(PoolLayer));
     poolLayer->inputWidth = inputWidth;
     poolLayer->inputHeight = inputWidth;
@@ -191,10 +191,12 @@ OutLayer* initOutLayer(int inputNum,int outputNum){
     outLayer->d = (double*) malloc(outputNum*sizeof(double));
     outLayer->v = (double*) malloc(outputNum*sizeof(double));
     outLayer->y = (double*) malloc(outputNum*sizeof(double));
+    outLayer->p = (double*) malloc(outputNum*sizeof(double));
 
     int i,j;
     outLayer->bias = (double*) malloc(outputNum*sizeof(double));
     outLayer->weight = initMat(inputNum, outputNum, 0);
+//    outLayer->dweight = initMat(inputNum, outputNum, 0);
 //    srand(100);
     for (i=0; i<outputNum; i++){
         for (j=0; j<inputNum; j++){
@@ -205,6 +207,29 @@ OutLayer* initOutLayer(int inputNum,int outputNum){
     outLayer->isFullConnect=1;
     return outLayer;
 };
+
+void cnn_setup(CNN* cnn, int inputHeight, int inputWidth, int outNum){
+    int inH = inputHeight;
+    int inW = inputWidth;
+    cnn->C1 = initCovLayer(inH, inW, 5, 1, 6, 2);       // 28*28 -> 32*32 -> 28*28
+    inH = cnn->C1->outputHeight;
+    inW = cnn->C1->outputWidth;
+    cnn->S2 = initPoolLayer(inH, inW, 2, 6, 6, 0);      // 28*28 -> 14*14
+    inH /= cnn->S2->mapSize;
+    inW /= cnn->S2->mapSize;
+    cnn->C3 = initCovLayer(inH, inW, 5, 6, 12, 0);      // 14*14 -> 10*10
+    inH = cnn->C3->outputHeight;
+    inW = cnn->C3->outputWidth;
+    cnn->S4 = initPoolLayer(inH, inW, 2, 12, 12, 0);    // 10*10 -> 5*5
+    inH /= cnn->S4->mapSize;
+    inW /= cnn->S4->mapSize;
+    cnn->Out = initOutLayer(inH*inW * 12, outNum);        // 300 -> 10
+
+    cnn->e=(double *)malloc(cnn->Out->outputNum*sizeof(double));
+};
+
+
+
 
 void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, int padding){
     int mapSize = map->row;
@@ -311,12 +336,23 @@ void nnForward(OutLayer* O, const double* inArr){
 
     vMat.row=1;
     vMat.column=O->outputNum;
-    vMat.val = O->v;
+    vMat.val = O->v;            // modify vMat->val should also modify O->v->val
 
     mulMat(&vMat, &inMat, O->weight);
     int i;
     for (i=0; i<O->outputNum; i++){
         vMat.val[i] += O->bias[i];
+//        O->v[i] = vMat.val[i];
         O->y[i] = activate(vMat.val[i]);
     }
+    softMax(O->p, O->y, O->outputNum);
 };
+
+void cnnfw(CNN* cnn, matrix* inMat){
+
+}
+
+void trainModel(CNN* cnn){
+
+}
+

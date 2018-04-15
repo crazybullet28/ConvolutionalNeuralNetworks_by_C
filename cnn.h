@@ -60,9 +60,12 @@ typedef struct nn_layer{
     matrix* weight;
     double* bias;   //偏置，大小为outputNum大小
 
+//    matrix* dweight;   // 权重梯度
+
     // 下面三者的大小同输出的维度相同
     double* v; // 进入激活函数的输入值
     double* y; // 激活函数后神经元的输出
+    double* p; // softMax(y)
     double* d; // 网络的局部梯度,δ值
 
     boolean isFullConnect; //是否为全连接
@@ -74,7 +77,7 @@ typedef struct cnn_network{
     PoolLayer* S2;
     CovLayer* C3;
     PoolLayer* S4;
-    OutLayer* O5;
+    OutLayer* Out;
 
     double* e; // 训练误差
     double* L; // 瞬时误差能量
@@ -82,11 +85,11 @@ typedef struct cnn_network{
 
 CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChannels, int outChannels, int paddingForward);
 
-PoolLayer* initPoolLayer(int inputWidth, int inputHeight, int mapSize, int inChannels, int outChannels, int poolType);
+PoolLayer* initPoolLayer(int inputHeight, int inputWidth, int mapSize, int inChannels, int outChannels, int poolType);
 
 OutLayer* initOutLayer(int inputNum,int outputNum);
 
-void cnn_setup();
+void cnn_setup(CNN* cnn, int inRow, int inCol, int outNum);
 
 
 
@@ -101,6 +104,8 @@ void pooling_mean(matrix* res, matrix* inMat, int mapSize);
 void pooling(PoolLayer* S, matrix** inMat);
 
 void nnForward(OutLayer* O, const double* inArr);
+
+void nnBackward(CNN* cnn, double* outputData);
 
 void softMax(double* outArr, const double* inArr, int outNum);
 
