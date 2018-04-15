@@ -6,7 +6,81 @@
 #include <math.h>
 #include <mapi.h>
 #include "matrix.c"
-#include "cnn.h"
+
+typedef struct convolutional_layer{
+    int inputWidth;
+    int inputHeight;
+    int mapSize;
+    int paddingForward;
+    int paddingBack;
+    int outputWidth;
+    int outputHeight;
+
+    int inChannels;   //输入图像的数目
+    int outChannels;  //输出图像的数目
+
+    // 关于特征模板的权重分布，这里是一个四维数组, 其大小为inChannels * outChannels * mapSize * mapSize
+    // 这里用四维数组，主要是为了表现全连接的形式，实际上卷积层并没有用到全连接的形式
+    matrix*** mapWeight;
+    matrix*** dmapWeight;
+
+    double* bias;   //偏置，偏置的大小，为outChannels
+    boolean isFullConnect; //是否为全连接
+    boolean *connectModel; //连接模式（默认为全连接）
+
+    // 下面三者的大小同输出的维度相同
+    matrix** v;     // 进入激活函数的输入值           outChannels * outputHeight * outputWidth
+    matrix** y;     // 激活函数后神经元的输出
+
+    // 输出像素的局部梯度
+    matrix** d;     // 网络的局部梯度,δ值
+} CovLayer;
+
+typedef struct pooling_layer{
+    int inputWidth;
+    int inputHeight;
+    int mapSize;
+
+//    inChannels = outChannels
+    int inChannels;
+    int outChannels;
+
+    int poolType;       // 0 - max pooling / 1 - mean pooling
+    double *bias;
+
+//    double*** y; // output, without active
+    matrix** y;
+//    double*** d; // local gradient
+    matrix** d;
+} PoolLayer;
+
+typedef struct nn_layer{
+    int inputNum;   //输入数据的数目
+    int outputNum;  //输出数据的数目
+
+//    double** weight; // 权重数据，为一个inputNum*outputNum大小
+    matrix* weight;
+    double* bias;   //偏置，大小为outputNum大小
+
+    // 下面三者的大小同输出的维度相同
+    double* v; // 进入激活函数的输入值
+    double* y; // 激活函数后神经元的输出
+    double* d; // 网络的局部梯度,δ值
+
+    boolean isFullConnect; //是否为全连接
+} OutLayer;
+
+typedef struct cnn_network{
+    int layerNum;
+    CovLayer* C1;
+    PoolLayer* S2;
+    CovLayer* C3;
+    PoolLayer* S4;
+    OutLayer* Out;
+
+    double* e; // 训练误差
+    double* L; // 瞬时误差能量
+} CNN;
 
 double activate(double num){
 //    ReLu
@@ -18,19 +92,6 @@ double acti_derivation(double y){
     return (y>0)?1:0;
 }
 
-matrix* softmax_classifier(matrix* input){
-    int i,j;
-    double sum;
-    matrix *res = initMat(input->row, input->column, 1);
-    for(i=0;i<input->row;i++){
-        sum=0;
-        for(j=0;j<input->row;j++){
-            sum += exp(*getMatVal(input,j,0));
-        }
-        res->val[i] = exp(*getMatVal(input,i,0))/sum;
-    }
-    return res;
-}
 
 void softMax(double* outArr, const double* inArr, int outNum){
     double sum=0, tmp;
@@ -287,17 +348,6 @@ void nnForward(OutLayer* O, const double* inArr){
     softMax(O->p, O->y, O->outputNum);
 };
 
-
-void nnBackward(CNN* cnn, double* outputData) {
-    int i, j, c, r;
-    for (i = 0; i < cnn->Out->outputNum; i++) {
-        cnn->e[i] = cnn->Out->y[i] - outputData[i];
-    }
-    //2 fully connected layer
-    for (i = 0;)
-
-};
-
 void cnnfw(CNN* cnn, matrix* inMat){
 
 }
@@ -305,3 +355,4 @@ void cnnfw(CNN* cnn, matrix* inMat){
 void trainModel(CNN* cnn){
 
 }
+
