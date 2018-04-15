@@ -76,7 +76,6 @@ typedef struct cnn_network{
     PoolLayer* S2;
     CovLayer* C3;
     PoolLayer* S4;
-    CovLayer* C5;
     OutLayer* Out;
 
     double* e; // 训练误差
@@ -85,11 +84,11 @@ typedef struct cnn_network{
 
 CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChannels, int outChannels, int paddingForward);
 
-PoolLayer* initPoolLayer(int inputWidth, int inputHeight, int mapSize, int inChannels, int outChannels, int poolType);
+PoolLayer* initPoolLayer(int inputHeight, int inputWidth, int mapSize, int inChannels, int outChannels, int poolType);
 
 OutLayer* initOutLayer(int inputNum,int outputNum);
 
-void cnn_setup();
+void cnn_setup(CNN* cnn, int inRow, int inCol, int outNum);
 
 
 
