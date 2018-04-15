@@ -74,7 +74,9 @@ typedef struct cnn_network{
     PoolLayer* S2;
     CovLayer* C3;
     PoolLayer* S4;
-    OutLayer* O5;
+    CovLayer* C5;
+    OutLayer* F6;
+    OutLayer* Out;
 
     double* e; // 训练误差
     double* L; // 瞬时误差能量
@@ -101,6 +103,8 @@ void pooling_mean(matrix* res, matrix* inMat, int mapSize);
 void pooling(PoolLayer* S, matrix** inMat);
 
 void nnForward(OutLayer* O, const double* inArr);
+
+void nnBackward(CNN* cnn, double* outputData);
 
 void softMax(double* outArr, const double* inArr, int outNum);
 

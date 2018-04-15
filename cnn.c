@@ -270,4 +270,4 @@ void softMax(double* outArr, const double* inArr, int outNum){
 };
 
 void cnn_setup(){
-}
+};
