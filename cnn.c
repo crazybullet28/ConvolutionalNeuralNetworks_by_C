@@ -130,11 +130,12 @@ OutLayer* initOutLayer(int inputNum,int outputNum){
     outLayer->d = (double*) malloc(outputNum*sizeof(double));
     outLayer->v = (double*) malloc(outputNum*sizeof(double));
     outLayer->y = (double*) malloc(outputNum*sizeof(double));
+    outLayer->p = (double*) malloc(outputNum*sizeof(double));
 
     int i,j;
     outLayer->bias = (double*) malloc(outputNum*sizeof(double));
     outLayer->weight = initMat(inputNum, outputNum, 0);
-    outLayer->dweight = initMat(inputNum, outputNum, 0);
+//    outLayer->dweight = initMat(inputNum, outputNum, 0);
 //    srand(100);
     for (i=0; i<outputNum; i++){
         for (j=0; j<inputNum; j++){
@@ -155,13 +156,13 @@ void cnn_setup(CNN* cnn, int inputHeight, int inputWidth, int outNum){
     cnn->S2 = initPoolLayer(inH, inW, 2, 6, 6, 0);      // 28*28 -> 14*14
     inH /= cnn->S2->mapSize;
     inW /= cnn->S2->mapSize;
-    cnn->C3 = initCovLayer(inH, inW, 5, 6, 16, 0);      // 14*14 -> 10*10
+    cnn->C3 = initCovLayer(inH, inW, 5, 6, 12, 0);      // 14*14 -> 10*10
     inH = cnn->C3->outputHeight;
     inW = cnn->C3->outputWidth;
-    cnn->S4 = initPoolLayer(inH, inW, 2, 16, 16, 0);    // 10*10 -> 5*5
+    cnn->S4 = initPoolLayer(inH, inW, 2, 12, 12, 0);    // 10*10 -> 5*5
     inH /= cnn->S4->mapSize;
     inW /= cnn->S4->mapSize;
-    cnn->Out = initOutLayer(inH*inW*16, outNum);        // 400 -> 10
+    cnn->Out = initOutLayer(inH*inW * 12, outNum);        // 300 -> 10
 
     cnn->e=(double *)malloc(cnn->Out->outputNum*sizeof(double));
 };
@@ -283,6 +284,7 @@ void nnForward(OutLayer* O, const double* inArr){
 //        O->v[i] = vMat.val[i];
         O->y[i] = activate(vMat.val[i]);
     }
+    softMax(O->p, O->y, O->outputNum);
 };
 
 
@@ -295,3 +297,11 @@ void nnBackward(CNN* cnn, double* outputData) {
     for (i = 0;)
 
 };
+
+void cnnfw(CNN* cnn, matrix* inMat){
+
+}
+
+void trainModel(CNN* cnn){
+
+}
