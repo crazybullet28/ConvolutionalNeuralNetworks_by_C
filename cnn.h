@@ -60,6 +60,8 @@ typedef struct nn_layer{
     matrix* weight;
     double* bias;   //偏置，大小为outputNum大小
 
+    matrix* dweight;   // 权重梯度
+
     // 下面三者的大小同输出的维度相同
     double* v; // 进入激活函数的输入值
     double* y; // 激活函数后神经元的输出

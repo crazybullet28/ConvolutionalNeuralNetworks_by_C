@@ -121,6 +121,7 @@ OutLayer* initOutLayer(int inputNum,int outputNum){
     int i,j;
     outLayer->bias = (double*) malloc(outputNum*sizeof(double));
     outLayer->weight = initMat(inputNum, outputNum, 0);
+    outLayer->dweight = initMat(inputNum, outputNum, 0);
 //    srand(100);
     for (i=0; i<outputNum; i++){
         for (j=0; j<inputNum; j++){
