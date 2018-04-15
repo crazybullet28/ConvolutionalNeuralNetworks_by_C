@@ -10,16 +10,19 @@ MINST数据库是一个手写图像数据库，里面
 #include <math.h>
 //#include <random>
 #include <time.h>
+#include "matrix.c"
 
-typedef struct MinstImg{
-    int c;           // 图像宽
-    int r;           // 图像高
-    float** ImgData; // 图像数据二维动态数组
-}MinstImg;
+//typedef struct MinstImg{
+//    matrix* ImgMat;
+////    int c;           // 图像宽
+////    int r;           // 图像高
+////    float** ImgData; // 图像数据二维动态数组
+//}MinstImg;
 
 typedef struct MinstImgArr{
     int ImgNum;        // 存储图像的数目
-    MinstImg* ImgPtr;  // 存储图像数组指针
+//    MinstImg* ImgPtr;  // 存储图像数组指针
+    matrix** ImgPtr;
 }*ImgArr;              // 存储图像数据的数组
 
 typedef struct MinstLabel{

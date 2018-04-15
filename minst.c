@@ -40,21 +40,23 @@ ImgArr read_Img(const char* filename){   // 读入图像
     // 图像数组的初始化
     ImgArr imgarr=(ImgArr)malloc(sizeof(ImgArr));
     imgarr->ImgNum=number_of_images;
-    imgarr->ImgPtr=(MinstImg*)malloc(number_of_images*sizeof(MinstImg));
+    imgarr->ImgPtr=(matrix**)malloc(number_of_images*sizeof(matrix*));
 
     for(i = 0; i < number_of_images; ++i)
     {
-        imgarr->ImgPtr[i].r=n_rows;
-        imgarr->ImgPtr[i].c=n_cols;
-        imgarr->ImgPtr[i].ImgData=(float**)malloc(n_rows*sizeof(float*));
+        imgarr->ImgPtr[i]=initMat(n_rows, n_cols, 0);
+//        imgarr->ImgPtr[i].r=n_rows;
+//        imgarr->ImgPtr[i].c=n_cols;
+//        imgarr->ImgPtr[i].ImgData=(float**)malloc(n_rows*sizeof(float*));
         for(r = 0; r < n_rows; ++r)
         {
-            imgarr->ImgPtr[i].ImgData[r]=(float*)malloc(n_cols*sizeof(float));
+//            imgarr->ImgPtr[i].ImgData[r]=(float*)malloc(n_cols*sizeof(float));
             for(c = 0; c < n_cols; ++c)
             {
                 unsigned char temp = 0;
                 fread((char*) &temp, sizeof(temp),1,fp);
-                imgarr->ImgPtr[i].ImgData[r][c]=(float)temp/255.0;
+                *getMatVal(imgarr->ImgPtr[i], r, c) = (double) temp/255.0;
+//                imgarr->ImgPtr[i].ImgData[r][c]=(float)temp/255.0;
             }
         }
     }
@@ -137,7 +139,7 @@ char * combine_strings(char *a, char *b){    // 将两个字符串相连
 void save_Img(ImgArr imgarr,char* filedir){  // 将图像数据保存成文件
     int img_number=imgarr->ImgNum;
 
-    int i,r;
+    int i,r, j;
     for(i=0;i<img_number;i++){
         const char* filename=combine_strings(filedir,combine_strings(intTochar(i),".gray"));
         FILE  *fp=NULL;
@@ -146,8 +148,12 @@ void save_Img(ImgArr imgarr,char* filedir){  // 将图像数据保存成文件
             printf("write file failed\n");
         assert(fp);
 
-        for(r=0;r<imgarr->ImgPtr[i].r;r++)
-            fwrite(imgarr->ImgPtr[i].ImgData[r],sizeof(float),imgarr->ImgPtr[i].c,fp);
+        for (j=0; j<imgarr->ImgPtr[i]->row*imgarr->ImgPtr[i]->column; j++){
+            fwrite(imgarr->ImgPtr[i]->val, sizeof(double), imgarr->ImgPtr[i]->row*imgarr->ImgPtr[i]->column, fp);
+        }
+
+//        for(r=0;r<imgarr->ImgPtr[i].r;r++)
+//            fwrite(imgarr->ImgPtr[i].ImgData[r],sizeof(float),imgarr->ImgPtr[i].c,fp);
 
         fclose(fp);
     }
