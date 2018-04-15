@@ -13,6 +13,25 @@ double activate(double num){
     return (num>0)?num:0;
 };
 
+
+double acti_derivation(double y){
+    return (y>0)?1:0;
+}
+
+matrix* softmax_classifier(matrix* input){
+    int i,j;
+    double sum;
+    matrix *res = initMat(input->row, input->column, 1);
+    for(i=0;i<input->row;i++){
+        sum=0;
+        for(j=0;j<input->row;j++){
+            sum += exp(*getMatVal(input,j,0));
+        }
+        res->val[i] = exp(*getMatVal(input,i,0))/sum;
+    }
+    return res;
+}
+
 CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChannels, int outChannels, int paddingForward){
     CovLayer *covLayer = (CovLayer*) malloc(sizeof(CovLayer));
     covLayer->inputHeight = inputHeight;
@@ -75,7 +94,7 @@ PoolLayer* initPoolLayer(int inputWidth, int inputHeight, int mapSize, int inCha
     poolLayer->outChannels = outChannels;
     poolLayer->poolType = poolType;
 
-    poolLayer->bias = (double*)malloc(outChannels* sizeof(double));
+//    poolLayer->bias = (double*)malloc(outChannels* sizeof(double));
 
     int outW=inputWidth/mapSize;
     int outH=inputHeight/mapSize;
@@ -185,7 +204,18 @@ void pooling_max(matrix* res, matrix* inMat, int mapSize){
 };
 
 void pooling_mean(matrix* res, matrix* inMat, int mapSize){
-    ***
+    int i,j,k,l;
+    for (i=0; i<inMat->row/mapSize; i++) {
+        for (j = 0; j < inMat->column / mapSize; j++) {
+            double sum = 0.0;
+            for (k = 0; k < mapSize; k++) {
+                for (l = 0; l < mapSize; l++) {
+                    sum += *getMatVal(inMat, i * mapSize + k, j * mapSize + l);
+                }
+            }
+            *getMatVal(res,i,j) = sum/(mapSize*mapSize);
+        }
+    }
 };
 
 void pooling(PoolLayer* S, matrix** inMat){
@@ -217,6 +247,15 @@ void nnForward(OutLayer* O, const double* inArr){
     }
 };
 
+
+void nnBackward(CNN* cnn, double* outputData){
+    int i,j,c,r;
+    for(i=0;i<cnn->Out->outputNum;i++) {
+        cnn->e[i] = cnn->Out->y[i] - outputData[i];
+    }
+    //2 fully connected layer
+    for(i=0;)
+
 void softMax(double* outArr, const double* inArr, int outNum){
     double sum=0, tmp;
     int i;
@@ -231,5 +270,4 @@ void softMax(double* outArr, const double* inArr, int outNum){
 };
 
 void cnn_setup(){
-
 }
