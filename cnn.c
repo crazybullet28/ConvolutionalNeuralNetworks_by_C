@@ -297,7 +297,7 @@ void cnnfw(CNN* cnn, matrix* inMat){       // only one matrix a time.           
 
     float nn_input[cnn->Out->inputNum];
     int i;
-    int tmpLength = cnn->S4->outputWidth * cnn->S4->outputHeight
+    int tmpLength = cnn->S4->outputWidth * cnn->S4->outputHeight;
     for (i=0; i<cnn->S4->outChannels; i++){
         memcpy(&nn_input[i*tmpLength], cnn->S4->y[i], tmpLength*sizeof(float));
     }
@@ -332,7 +332,7 @@ void cnnbp(CNN* cnn,float* outputData)
 
     // Output layer
     for(i=0;i<cnn->Out->outputNum;i++)
-        cnn->Out->d[i]=cnn->e[i]*acti_derivation(cnn->Out->y[i]);
+        cnn->Out->d[i]=cnn->e[i];
 
     // S4层，传递到S4层的误差
     // 这里没有激活函数
@@ -353,7 +353,7 @@ void cnnbp(CNN* cnn,float* outputData)
         matrix* C3e = UpSample(cnn->S4->d[i],cnn->S4->inputWidth/cnn->S4->mapSize,cnn->S4->inputHeight/cnn->S4->mapSize,cnn->S4->mapSize);
         for(r=0;r<cnn->S4->inputHeight;r++)
             for(c=0;c<cnn->S4->inputWidth;c++)
-                *getMatVal(cnn->C3->d[i],r,c)=*getMatVal(C3e,r,c)*acti_derivation(*getMatVal(cnn->C3->y[i],r,c));
+                *getMatVal(cnn->C3->d[i],r,c)=*getMatVal(C3e,r,c)*acti_derivation(*getMatVal(cnn->C3->v[i],r,c));
         freeMat(C3e);
     }
 
@@ -389,7 +389,7 @@ void cnnbp(CNN* cnn,float* outputData)
         matrix* C1e = UpSample(cnn->S2->d[i],cnn->S2->inputWidth/cnn->S2->mapSize,cnn->S2->inputHeight/cnn->S2->mapSize,cnn->S2->mapSize);
         for(r=0;r<cnn->S2->inputHeight;r++)
             for(c=0;c<cnn->S2->inputWidth;c++)
-                *getMatVal(cnn->C1->d[i],r,c)=*getMatVal(C1e,r,c)*acti_derivation(*getMatVal(cnn->C1->y[i],r,c));
+                *getMatVal(cnn->C1->d[i],r,c)=*getMatVal(C1e,r,c)*acti_derivation(*getMatVal(cnn->C1->v[i],r,c));
         free(C1e);
     }
 }
