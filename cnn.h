@@ -87,7 +87,7 @@ typedef struct cnn_network{
 
 typedef struct train_opts{
     int numepochs; // 训练的迭代次数
-    float alpha; // 学习速率
+    float eta; // 学习速率
 }CNNOpts;
 
 CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChannels, int outChannels, int paddingForward);

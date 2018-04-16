@@ -28,6 +28,7 @@ typedef struct MinstImgArr{
 typedef struct MinstLabel{
     int l;            // 输出标记的长
     float* LabelData; // 输出标记数据
+    int Labely;
 }MinstLabel;
 
 typedef struct MinstLabelArr{

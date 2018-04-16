@@ -97,6 +97,7 @@ LabelArr read_Lable(const char* filename){  // 读入图像
         unsigned char temp = 0;
         fread((char*) &temp, sizeof(temp),1,fp);
         labarr->LabelPtr[i].LabelData[(int)temp]=1.0;
+        labarr->LabelPtr[i].Labely = (int)temp;
     }
 
     fclose(fp);
