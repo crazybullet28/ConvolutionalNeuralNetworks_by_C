@@ -277,18 +277,14 @@ void nnForward(OutLayer* O, float* inArr){
     for (i=0; i<O->outputNum; i++){
         vMat.val[i] += O->bias[i];
 //        O->v[i] = vMat.val[i];
-        O->y[i] = activate(vMat.val[i]);
+//        O->y[i] = activate(vMat.val[i]);
+        O->y[i] = vMat.val[i];
     }
     softMax(O->p, O->y, O->outputNum);
 };
 
-float computeLoss(float* outArr, float* labelY, int outNum){
-    float sum=0;
-    int i;
-    for (i=0; i<outNum; i++){
-        sum+=outArr[i]*labelY[i];
-    }
-    return -log(sum);
+float computeLoss(float* outArr, int labely){
+    return -log(outArr[labely]);
 };
 
 void cnnfw(CNN* cnn, matrix* inMat){       // only one matrix a time.           outArr has already been malloc
@@ -398,7 +394,8 @@ void cnnbp(CNN* cnn,float* outputData)
     }
 }
 
-void gradient_update(CNN* cnn,CNNOpts opts,matrix* inMat){
+
+void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat){
     int i,j,r,c;
 
     //C1
@@ -449,48 +446,57 @@ void gradient_update(CNN* cnn,CNNOpts opts,matrix* inMat){
     free(Out_input);
 }
 
-
 void cnnclear(CNN* cnn)
 {
     // Clear local error and output
     int j,c,r;
     // C1
     for(j=0;j<cnn->C1->outChannels;j++){
-        for(r=0;r<cnn->S2->inputHeight;r++){
-            for(c=0;c<cnn->S2->inputWidth;c++){
-                *getMatVal(cnn->C1->d[j],r,c)=(float)0.0;
-                *getMatVal(cnn->C1->v[j],r,c)=(float)0.0;
-                *getMatVal(cnn->C1->y[j],r,c)=(float)0.0;
-            }
-        }
+        clearMat(cnn->C1->d[j]);
+        clearMat(cnn->C1->v[j]);
+        clearMat(cnn->C1->y[j]);
+//        for(r=0;r<cnn->S2->inputHeight;r++){
+//            for(c=0;c<cnn->S2->inputWidth;c++){
+//                *getMatVal(cnn->C1->d[j],r,c)=(float)0.0;
+//                *getMatVal(cnn->C1->v[j],r,c)=(float)0.0;
+//                *getMatVal(cnn->C1->y[j],r,c)=(float)0.0;
+//            }
+//        }
     }
     // S2
     for(j=0;j<cnn->S2->outChannels;j++){
-        for(r=0;r<cnn->C3->inputHeight;r++){
-            for(c=0;c<cnn->C3->inputWidth;c++){
-                *getMatVal(cnn->S2->d[j],r,c)=(float)0.0;
-                *getMatVal(cnn->S2->y[j],r,c)=(float)0.0;
-            }
-        }
+        clearMat(cnn->S2->d[j]);
+        clearMat(cnn->S2->y[j]);
+//        for(r=0;r<cnn->C3->inputHeight;r++){
+//            for(c=0;c<cnn->C3->inputWidth;c++){
+//                *getMatVal(cnn->S2->d[j],r,c)=(float)0.0;
+//                *getMatVal(cnn->S2->y[j],r,c)=(float)0.0;
+//            }
+//        }
     }
     // C3
     for(j=0;j<cnn->C3->outChannels;j++){
-        for(r=0;r<cnn->S4->inputHeight;r++){
-            for(c=0;c<cnn->S4->inputWidth;c++){
-                *getMatVal(cnn->C3->d[j],r,c)=(float)0.0;
-                *getMatVal(cnn->C3->v[j],r,c)=(float)0.0;
-                *getMatVal(cnn->C3->y[j],r,c)=(float)0.0;
-            }
-        }
+        clearMat(cnn->C3->d[j]);
+        clearMat(cnn->C3->v[j]);
+        clearMat(cnn->C3->y[j]);
+//        for(r=0;r<cnn->S4->inputHeight;r++){
+//            for(c=0;c<cnn->S4->inputWidth;c++){
+//                *getMatVal(cnn->C3->d[j],r,c)=(float)0.0;
+//                *getMatVal(cnn->C3->v[j],r,c)=(float)0.0;
+//                *getMatVal(cnn->C3->y[j],r,c)=(float)0.0;
+//            }
+//        }
     }
     // S4
     for(j=0;j<cnn->S4->outChannels;j++){
-        for(r=0;r<cnn->S4->inputHeight/cnn->S4->mapSize;r++){
-            for(c=0;c<cnn->S4->inputWidth/cnn->S4->mapSize;c++){
-                *getMatVal(cnn->S4->d[j],r,c)=(float)0.0;
-                *getMatVal(cnn->S4->y[j],r,c)=(float)0.0;
-            }
-        }
+        clearMat(cnn->S4->d[j]);
+        clearMat(cnn->S4->y[j]);
+//        for(r=0;r<cnn->S4->inputHeight/cnn->S4->mapSize;r++){
+//            for(c=0;c<cnn->S4->inputWidth/cnn->S4->mapSize;c++){
+//                *getMatVal(cnn->S4->d[j],r,c)=(float)0.0;
+//                *getMatVal(cnn->S4->y[j],r,c)=(float)0.0;
+//            }
+//        }
     }
     // Output
     for(j=0;j<cnn->Out->outputNum;j++){
@@ -500,8 +506,8 @@ void cnnclear(CNN* cnn)
     }
 }
 
-void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts,int trainNum){
-    cnn->L=(float *)malloc(trainNum*sizeof(float));
+void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, int trainNum){           // may be slow?
+    cnn->L=(float *)malloc(opts.numepochs*sizeof(float));
     int e;
     for (e=0; e<opts.numepochs; e++){
         int n;
@@ -509,12 +515,27 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts,in
 //            matrix* inputMat = defMat(inputData->ImgPtr[n].ImgData, inputData->ImgPtr[n].r, inputData->ImgPtr[n].c);
 //            freeMat(inputMat);
             cnnfw(cnn, inputData->ImgPtr[n]);
-            cnn->L[n] = computeLoss(cnn->Out->p, outputData->LabelPtr[n].LabelData, cnn->Out->outputNum);
+            cnn->L[e] = computeLoss(cnn->Out->p, outputData->LabelPtr[n].Labely);
             cnnbp();
+            gradient_update(cnn, opts, inputData->ImgPtr[n]);
+
+            cnnclear(cnn);
         }
     }
 };
 
-void testModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts,int trainNum){
 
+float testModel(CNN* cnn, ImgArr inputData, LabelArr outputData, int testNum){
+    int sumOfCorrect = 0;
+    int n;
+    for (n=0; n<testNum; n++){
+        cnnfw(cnn, inputData->ImgPtr[n]);
+        int i, maxIndex=0;
+        double max;
+        for (i=0; i<cnn->Out->outputNum; i++){
+            maxIndex = (cnn->Out->p[i]>0)?i:maxIndex;
+        }
+        if (maxIndex == outputData->LabelPtr[n].Labely) sumOfCorrect++;
+    }
+    return sumOfCorrect/(float) testNum;
 };
