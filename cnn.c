@@ -387,6 +387,56 @@ void cnnbp(CNN* cnn,float* outputData)
     }
 }
 
+void cnnclear(CNN* cnn)
+{
+    // Clear local error and output
+    int j,c,r;
+    // C1
+    for(j=0;j<cnn->C1->outChannels;j++){
+        for(r=0;r<cnn->S2->inputHeight;r++){
+            for(c=0;c<cnn->S2->inputWidth;c++){
+                *getMatVal(cnn->C1->d[j],r,c)=(float)0.0;
+                *getMatVal(cnn->C1->v[j],r,c)=(float)0.0;
+                *getMatVal(cnn->C1->y[j],r,c)=(float)0.0;
+            }
+        }
+    }
+    // S2
+    for(j=0;j<cnn->S2->outChannels;j++){
+        for(r=0;r<cnn->C3->inputHeight;r++){
+            for(c=0;c<cnn->C3->inputWidth;c++){
+                *getMatVal(cnn->S2->d[j],r,c)=(float)0.0;
+                *getMatVal(cnn->S2->y[j],r,c)=(float)0.0;
+            }
+        }
+    }
+    // C3
+    for(j=0;j<cnn->C3->outChannels;j++){
+        for(r=0;r<cnn->S4->inputHeight;r++){
+            for(c=0;c<cnn->S4->inputWidth;c++){
+                *getMatVal(cnn->C3->d[j],r,c)=(float)0.0;
+                *getMatVal(cnn->C3->v[j],r,c)=(float)0.0;
+                *getMatVal(cnn->C3->y[j],r,c)=(float)0.0;
+            }
+        }
+    }
+    // S4
+    for(j=0;j<cnn->S4->outChannels;j++){
+        for(r=0;r<cnn->S4->inputHeight/cnn->S4->mapSize;r++){
+            for(c=0;c<cnn->S4->inputWidth/cnn->S4->mapSize;c++){
+                *getMatVal(cnn->S4->d[j],r,c)=(float)0.0;
+                *getMatVal(cnn->S4->y[j],r,c)=(float)0.0;
+            }
+        }
+    }
+    // Output
+    for(j=0;j<cnn->Out->outputNum;j++){
+        cnn->Out->d[j]=(float)0.0;
+        cnn->Out->v[j]=(float)0.0;
+        cnn->Out->y[j]=(float)0.0;
+    }
+}
+
 void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts,int trainNum){
     cnn->L=(float *)malloc(trainNum*sizeof(float));
     int e;
