@@ -16,9 +16,9 @@ float activate(float num){
     return (num>0)?num:0;
 };
 
-float activate_sigmoid(float num){
-    return exp(num)/(exp(num)+1.0);
-}
+//float activate_sigmoid(float num){
+//    return exp(num)/(exp(num)+1.0);
+//}
 
 float acti_derivation(float y){
     return (y>0)?1:0;
@@ -278,13 +278,17 @@ void nnForward(OutLayer* O, float* inArr){
         vMat.val[i] += O->bias[i];
 //        O->v[i] = vMat.val[i];
         O->y[i] = activate(vMat.val[i]);
-//        O->y[i] = activate_sigmoid(vMat.val[i]);
     }
     softMax(O->p, O->y, O->outputNum);
 };
 
-float computeLoss(OutLayer* O, float* inArr, LabelArr outputData){
-    
+float computeLoss(float* outArr, float* labelY, int outNum){
+    float sum=0;
+    int i;
+    for (i=0; i<outNum; i++){
+        sum+=outArr[i]*labelY[i];
+    }
+    return -log(sum);
 };
 
 void cnnfw(CNN* cnn, matrix* inMat){       // only one matrix a time.           outArr has already been malloc
@@ -505,19 +509,8 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts,in
 //            matrix* inputMat = defMat(inputData->ImgPtr[n].ImgData, inputData->ImgPtr[n].r, inputData->ImgPtr[n].c);
 //            freeMat(inputMat);
             cnnfw(cnn, inputData->ImgPtr[n]);
+            cnn->L[n] = computeLoss(cnn->Out->p, outputData->LabelPtr[n].LabelData, cnn->Out->outputNum);
             cnnbp();
-
-
-            // compute the loss
-            float l=0.0;
-            int i;
-            for (i=0; i<cnn->Out->outputNum; i++){
-                l += cnn->e[i] * cnn->e[i];
-            }
-            if(n==0)
-                cnn->L[n]=l/(float)2.0;
-            else
-                cnn->L[n]=cnn->L[n-1]*0.99f+0.01f*l/2.0f;
         }
     }
 };
