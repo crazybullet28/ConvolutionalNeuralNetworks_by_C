@@ -341,7 +341,6 @@ void cnnbp(CNN* cnn,float* outputData)
 
     // C3层
     // 由S4层传递的各反向误差,这里只是在S4的梯度上扩充一倍
-    int mapdata=cnn->S4->mapSize;
     // 这里的Pooling是求平均，
     for(i=0;i<cnn->C3->outChannels;i++){
         matrix* C3e = UpSample(cnn->S4->d[i],cnn->S4->inputWidth/cnn->S4->mapSize,cnn->S4->inputHeight/cnn->S4->mapSize,cnn->S4->mapSize);
@@ -352,21 +351,24 @@ void cnnbp(CNN* cnn,float* outputData)
     }
 
     // S2层，S2层没有激活函数，这里只有卷积层有激活函数部分
-    // 由卷积层传递给采样层的误差梯度，这里卷积层共有6*12个卷积模板
+    // 由卷积层传递给采样层的误差梯度，这里卷积层共有6*16个卷积模板
     int output_c=cnn->C3->inputWidth;
     int output_r=cnn->C3->inputHeight;
     int input_c=cnn->S4->inputWidth;
     int input_r=cnn->S4->inputHeight;
     int mapsize_C3=cnn->C3->mapSize;
+    int padding_size = mapsize_C3 -1;
+
+    matrix* sum = initMat(output_r, output_c, 1);
     for(i=0;i<cnn->S2->outChannels;i++){
         for(j=0;j<cnn->C3->outChannels;j++){
-            matrix* expand_mat =
-            float** corr=correlation(cnn->C3->mapWeight[i][j],mapSize,cnn->C3->d[j],inSize,full);
-            addmat(cnn->S2->d[i],cnn->S2->d[i],outSize,corr,outSize);
-            for(r=0;r<outSize.r;r++)
-                free(corr[r]);
-            free(corr);
+            matrix* rot_weight = initMat(mapsize_C3,mapsize_C3,1);
+            rotate180Mat(rot_weight,cnn->C3->mapWeight[i][j]);
+            covolution_once(cnn->S2->d[i], cnn->C3->d[j], rot_weight, output_r, output_c, padding_size);
+            addMat(sum,cnn->S2->d[i],sum);
+            freeMat(rot_weight);
         }
+        cnn->S2->d[i] = sum;
         /*
         for(r=0;r<cnn->C3->inputHeight;r++)
             for(c=0;c<cnn->C3->inputWidth;c++)
@@ -375,16 +377,12 @@ void cnnbp(CNN* cnn,float* outputData)
     }
 
     // C1层，卷积层
-    mapdata=cnn->S2->mapSize;
-    nSize S2dSize={cnn->S2->inputWidth/cnn->S2->mapSize,cnn->S2->inputHeight/cnn->S2->mapSize};
     // 这里的Pooling是求平均，所以反向传递到下一神经元的误差梯度没有变化
     for(i=0;i<cnn->C1->outChannels;i++){
-        float** C1e=UpSample(cnn->S2->d[i],S2dSize,cnn->S2->mapSize,cnn->S2->mapSize);
+        matrix* C1e = UpSample(cnn->S2->d[i],cnn->S2->inputWidth/cnn->S2->mapSize,cnn->S2->inputHeight/cnn->S2->mapSize,cnn->S2->mapSize);
         for(r=0;r<cnn->S2->inputHeight;r++)
             for(c=0;c<cnn->S2->inputWidth;c++)
-                cnn->C1->d[i][r][c]=C1e[r][c]*sigma_derivation(cnn->C1->y[i][r][c])/(float)(cnn->S2->mapSize*cnn->S2->mapSize);
-        for(r=0;r<cnn->S2->inputHeight;r++)
-            free(C1e[r]);
+                *getMatVal(cnn->C1->d[i],r,c)=*getMatVal(C1e,r,c)*acti_derivation(*getMatVal(cnn->C1->y[i],r,c));
         free(C1e);
     }
 }
