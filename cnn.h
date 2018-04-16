@@ -112,7 +112,7 @@ void pooling(PoolLayer* S, matrix** inMat);
 
 void nnForward(OutLayer* O, float* inArr);
 
-void softMax(float* outArr, const float* inArr, int outNum);
+//void softMax(float* outArr, const float* inArr, int outNum);
 
 
 

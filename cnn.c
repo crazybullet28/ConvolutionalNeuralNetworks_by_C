@@ -16,6 +16,10 @@ float activate(float num){
     return (num>0)?num:0;
 };
 
+//float activate_sigmoid(float num){
+//    return exp(num)/(exp(num)+1.0);
+//}
+
 float acti_derivation(float y){
     return (y>0)?1:0;
 }
@@ -278,7 +282,14 @@ void nnForward(OutLayer* O, float* inArr){
     softMax(O->p, O->y, O->outputNum);
 };
 
-float computeLoss(CNN* cnn, ){};
+float computeLoss(float* outArr, float* labelY, int outNum){
+    float sum=0;
+    int i;
+    for (i=0; i<outNum; i++){
+        sum+=outArr[i]*labelY[i];
+    }
+    return -log(sum);
+};
 
 void cnnfw(CNN* cnn, matrix* inMat){       // only one matrix a time.           outArr has already been malloc
     matrix** input = (matrix**)malloc(sizeof(matrix*));
@@ -498,10 +509,12 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts,in
 //            matrix* inputMat = defMat(inputData->ImgPtr[n].ImgData, inputData->ImgPtr[n].r, inputData->ImgPtr[n].c);
 //            freeMat(inputMat);
             cnnfw(cnn, inputData->ImgPtr[n]);
-
-
-
+            cnn->L[n] = computeLoss(cnn->Out->p, outputData->LabelPtr[n].LabelData, cnn->Out->outputNum);
+            cnnbp();
         }
     }
-}
+};
 
+void testModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts,int trainNum){
+
+};
