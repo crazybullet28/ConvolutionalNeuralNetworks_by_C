@@ -387,6 +387,58 @@ void cnnbp(CNN* cnn,float* outputData)
     }
 }
 
+void gradient_update(CNN* cnn,CNNOpts opts,matrix* inMat){
+    int i,j,r,c;
+
+    //C1
+    for(i=0;i<cnn->C1->outChannels;i++){
+        for(j=0;j<cnn->C1->inChannels;j++){
+            matrix* rot_input = initMat(cnn->C1->inputHeight,cnn->C1->inputWidth,1);
+            rotate180Mat(rot_input,inMat);
+            covolution_once(cnn->C1->dmapWeight[j][i], rot_input,cnn->C1->d[i], cnn->C1->mapSize, cnn->C1->mapSize, 0);
+            matrix* minus_weight = initMat(cnn->C1->mapSize,cnn->C1->mapSize,1);
+            mulMatVal(minus_weight, cnn->C1->dmapWeight[j][i], -1*opts.eta);
+            addMat_replace(cnn->C1->mapWeight[j][i],minus_weight);
+
+            freeMat(rot_input);
+            freeMat(minus_weight);
+        }
+        cnn->C1->bias[i] = cnn->C1->bias[i] - opts.eta*sumMat(cnn->C1->d[i]);
+    }
+
+    //C3
+    for(i=0;i<cnn->C3->outChannels;i++){
+        for(j=0;j<cnn->C3->inChannels;j++){
+            matrix* rot_input = initMat(cnn->S2->outputHeight,cnn->S2->outputWidth,1);
+            rotate180Mat(rot_input,cnn->S2->y[j]);
+            covolution_once(cnn->C3->dmapWeight[j][i], rot_input,cnn->C3->d[i], cnn->C3->mapSize, cnn->C3->mapSize, 0);
+            matrix* minus_weight = initMat(cnn->C3->mapSize,cnn->C3->mapSize,1);
+            mulMatVal(minus_weight, cnn->C3->dmapWeight[j][i], -1*opts.eta);
+            addMat_replace(cnn->C3->mapWeight[j][i],minus_weight);
+
+            freeMat(rot_input);
+            freeMat(minus_weight);
+        }
+        cnn->C3->bias[i] = cnn->C3->bias[i] - opts.eta*sumMat(cnn->C3->d[i]);
+    }
+
+    //Output layer
+    float* Out_input=(float*)malloc((cnn->Out->inputNum)*sizeof(float));
+    int row = cnn->S4->inputHeight/cnn->S4->mapSize;
+    int col = cnn->S4->inputWidth/cnn->S4->mapSize;
+    for(i=0;i<cnn->S4->outChannels;i++)
+        for(r=0;r<row;r++)
+            for(c=0;c<col;c++)
+                Out_input[i*row*col+r*col+c] = *getMatVal(cnn->S4->y[i],r,c);
+    for(j=0;j<cnn->Out->outputNum;j++){
+        for(i=0;i<cnn->Out->inputNum;i++)
+            *getMatVal(cnn->Out->weight,j,i) = *getMatVal(cnn->Out->weight,j,i) - opts.eta*cnn->Out->d[j]*Out_input[i];
+        cnn->Out->bias[j] = cnn->Out->bias[j] - opts.eta*cnn->Out->d[j];
+    }
+    free(Out_input);
+}
+
+
 void cnnclear(CNN* cnn)
 {
     // Clear local error and output
