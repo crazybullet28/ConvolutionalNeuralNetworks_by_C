@@ -2,19 +2,14 @@
 // Created by crazybullet on 2018/4/13.
 //
 
-#include <stdio.h>
-#include <malloc.h>
-
-typedef struct matrix{
-    int row;
-    int column;
-    float * val;
-//    float* (*getMatVal)(struct matrix *self, int r, int c);
-} matrix;
+#include "matrix.h"
 
 float* getMatVal(matrix *self, int r, int c){
     if (r>=self->row || c>=self->column){
+        fflush(stdout);
         fprintf( stderr, "Error in getMatVal. Size out of range: %d - %d, %d - %d\n", self->row, self->column, r, c);
+//        backtrace_symbols_fd();
+        exit(1);
     }else{
         return self->val + (c+self->column*r);
     }
@@ -83,8 +78,9 @@ matrix* defMat(float** data, int r, int c){
 
 void resizeMat(matrix* self, int r, int c){
     if (r*c != self->row*self->column){
+        fflush(stdout);
         fprintf( stderr, "Error in resizeMat. Matrix size not fit: %d - %d, %d - %d\n", self->row, self->column, r, c);
-        return;
+        exit(1);
     }else{
         self->column=c;
         self->row=r;
@@ -93,8 +89,9 @@ void resizeMat(matrix* self, int r, int c){
 
 void addMat(matrix* res, matrix* a, matrix* b){
     if (a->row != b->row || a->column != b->column){
+        fflush(stdout);
         fprintf( stderr, "Error in addMat. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
-        return;
+        exit(1);
     }else{
         resetMat(res, a->row, a->column);
         int i=0, j=0;
@@ -109,8 +106,9 @@ void addMat(matrix* res, matrix* a, matrix* b){
 
 void addMat_replace(matrix *a, matrix *b){
     if (a->row != b->row || a->column != b->column){
+        fflush(stdout);
         fprintf( stderr, "Error in addMat. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
-        return;
+        exit(1);
     }else{
         int i=0, j=0;
         for (i=0; i<a->row; i++){
@@ -145,8 +143,9 @@ void addMatVal_replace(matrix *a, float b){
 
 void dotMat(matrix* res, matrix *a, matrix *b){
     if (a->row != b->row || a->column != b->column){
+        fflush(stdout);
         fprintf( stderr, "Error in dotMat. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
-        return;
+        exit(1);
     }else{
         resetMat(res, a->row, a->column);
         int i=0, j=0;
@@ -161,8 +160,9 @@ void dotMat(matrix* res, matrix *a, matrix *b){
 
 void dotMat_replace(matrix *a, matrix *b){
     if (a->row != b->row || a->column != b->column){
+        fflush(stdout);
         fprintf( stderr, "Error in dotMat. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
-        return;
+        exit(1);
     }else{
         int i=0, j=0;
         for (i=0; i<a->row; i++){
@@ -176,8 +176,10 @@ void dotMat_replace(matrix *a, matrix *b){
 
 float dotMatSum(matrix *a, matrix *b){
     if (a->row != b->row || a->column != b->column){
+        fflush(stdout);
         fprintf( stderr, "Error in dotMatSum. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
-        return NULL;
+//        return NULL;
+        exit(1);
     }else{
         float sum=0;
         int i=0, j=0;
@@ -192,8 +194,9 @@ float dotMatSum(matrix *a, matrix *b){
 
 void mulMat(matrix* res, matrix *a, matrix *b){
     if (a->column != b->row){
+        fflush(stdout);
         fprintf( stderr, "Error in mulMat. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
-        return;
+        exit(1);
     }else{
         resetMat(res, a->row, b->column);
         int i=0, j=0, k=0;
@@ -261,8 +264,9 @@ void tranMat(matrix* res, matrix* a){
 
 void subMat(matrix* res, matrix* a, int r_start, int height, int c_start, int width){
     if (a->row < r_start+height || a->column < c_start+width){
+        fflush(stdout);
         fprintf( stderr, "Error in subMat. SubMatrix size out of range: %d - %d, %d %d %d %d\n", a->row, a->column, r_start, height, c_start, width);
-        return;
+        exit(1);
     }else {
         resetMat(res, height, width);
         int i, j;

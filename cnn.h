@@ -5,6 +5,10 @@
 #ifndef PARALLEL_PROJ_CNN_H
 #define PARALLEL_PROJ_CNN_H
 
+#include "minst.h"
+#include "stdbool.h"
+#include "matrix.h"
+
 typedef struct convolutional_layer{
     int inputWidth;
     int inputHeight;
@@ -23,8 +27,8 @@ typedef struct convolutional_layer{
     matrix*** dmapWeight;
 
     float* bias;   //偏置，偏置的大小，为outChannels
-    boolean isFullConnect; //是否为全连接
-    boolean *connectModel; //连接模式（默认为全连接）
+    bool isFullConnect; //是否为全连接
+    bool *connectModel; //连接模式（默认为全连接）
 
     // 下面三者的大小同输出的维度相同
     matrix** v;     // 进入激活函数的输入值           outChannels * outputHeight * outputWidth
@@ -70,7 +74,7 @@ typedef struct nn_layer{
     float* p; // softMax(y)
     float* d; // 网络的局部梯度,δ值
 
-    boolean isFullConnect; //是否为全连接
+    bool isFullConnect; //是否为全连接
 } OutLayer;
 
 typedef struct cnn_network{
@@ -98,7 +102,11 @@ OutLayer* initOutLayer(int inputNum,int outputNum);
 
 void cnn_setup(CNN* cnn, int inRow, int inCol, int outNum);
 
+float activate(float num);
 
+float acti_derivation(float y);
+
+void softMax(float* outArr, const float* inArr, int outNum);
 
 void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, int padding);
 
@@ -112,8 +120,21 @@ void pooling(PoolLayer* S, matrix** inMat);
 
 void nnForward(OutLayer* O, float* inArr);
 
-//void softMax(float* outArr, const float* inArr, int outNum);
+float computeLoss(float* outArr, int labely);
 
+void cnnfw(CNN* cnn, matrix* inMat);
+
+matrix* UpSample(matrix* mat,int multiple_c,int multiple_r,int mapsize);
+
+void cnnbp(CNN* cnn, float* outputData);
+
+void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat);
+
+void cnnclear(CNN* cnn);
+
+void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, int trainNum);
+
+float testModel(CNN* cnn, ImgArr inputData, LabelArr outputData, int testNum);
 
 
 

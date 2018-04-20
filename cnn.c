@@ -2,13 +2,10 @@
 // Created by crazybullet on 2018/4/12.
 //
 
-#include <rpcndr.h>
 #include <math.h>
-#include <mapi.h>
-#include <mem.h>
-#include "matrix.c"
+//#include <mapi.h>
+//#include <mem.h>
 #include "cnn.h"
-#include "minst.h"
 
 
 float activate(float num){
@@ -132,8 +129,8 @@ OutLayer* initOutLayer(int inputNum,int outputNum){
     outLayer->weight = initMat(inputNum, outputNum, 0);
 //    outLayer->dweight = initMat(inputNum, outputNum, 0);
 //    srand(100);
-    for (i=0; i<outputNum; i++){
-        for (j=0; j<inputNum; j++){
+    for (i=0; i<inputNum; i++){
+        for (j=0; j<outputNum; j++){
             *getMatVal(outLayer->weight, i, j)=(rand()/(float)(RAND_MAX+1)-0.5)*2 * sqrt(6.0/(inputNum+outputNum));
         }
     }
@@ -143,6 +140,7 @@ OutLayer* initOutLayer(int inputNum,int outputNum){
 };
 
 void cnn_setup(CNN* cnn, int inputHeight, int inputWidth, int outNum){
+    printf("start cnn_setup\n");
     int inH = inputHeight;
     int inW = inputWidth;
     cnn->C1 = initCovLayer(inH, inW, 5, 1, 6, 2);       // 28*28 -> 32*32 -> 28*28
@@ -160,6 +158,7 @@ void cnn_setup(CNN* cnn, int inputHeight, int inputWidth, int outNum){
     cnn->Out = initOutLayer(inH*inW * 12, outNum);        // 300 -> 10
 
     cnn->e=(float *)malloc(cnn->Out->outputNum*sizeof(float));
+    printf("end trainModel\n");
 };
 
 
@@ -288,6 +287,7 @@ float computeLoss(float* outArr, int labely){
 };
 
 void cnnfw(CNN* cnn, matrix* inMat){       // only one matrix a time.           outArr has already been malloc
+    printf("start cnnfw\n");
     matrix** input = (matrix**)malloc(sizeof(matrix*));
     input[0] = inMat;
     convolution(cnn->C1, input);
@@ -305,10 +305,10 @@ void cnnfw(CNN* cnn, matrix* inMat){       // only one matrix a time.           
 
     freeMat(input[0]);
     free(input);
+    printf("end cnnfw\n");
 }
 
-matrix* UpSample(matrix* mat,int multiple_c,int multiple_r,int mapsize)
-{
+matrix* UpSample(matrix* mat,int multiple_c,int multiple_r,int mapsize){
     int i,j,m,n;
     matrix* res= initMat(mapsize*multiple_r, mapsize*multiple_c, 1); // size initialization
     for(j=0;j<mapsize*multiple_r;j=j+mapsize){
@@ -323,9 +323,8 @@ matrix* UpSample(matrix* mat,int multiple_c,int multiple_r,int mapsize)
     return res;
 }
 
-
-void cnnbp(CNN* cnn,float* outputData)
-{
+void cnnbp(CNN* cnn, float* outputData){
+    printf("start cnnbw\n");
     int i,j,c,r; // 将误差保存到网络中
     for(i=0;i<cnn->Out->outputNum;i++)
         cnn->e[i]=cnn->Out->y[i]-outputData[i];
@@ -392,6 +391,8 @@ void cnnbp(CNN* cnn,float* outputData)
                 *getMatVal(cnn->C1->d[i],r,c)=*getMatVal(C1e,r,c)*acti_derivation(*getMatVal(cnn->C1->v[i],r,c));
         free(C1e);
     }
+
+    printf("end cnnbw\n");
 }
 
 
@@ -446,8 +447,7 @@ void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat){
     free(Out_input);
 }
 
-void cnnclear(CNN* cnn)
-{
+void cnnclear(CNN* cnn){
     // Clear local error and output
     int j,c,r;
     // C1
@@ -507,21 +507,33 @@ void cnnclear(CNN* cnn)
 }
 
 void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, int trainNum){           // may be slow?
+    printf("start trainModel\n");
     cnn->L=(float *)malloc(opts.numepochs*sizeof(float));
-    int e;
-    for (e=0; e<opts.numepochs; e++){
+    int epoch;
+    for (epoch=0; epoch<opts.numepochs; epoch++){
+        printf("Epoch %d \n", epoch);
         int n;
         for (n=0; n<trainNum; n++){
-//            matrix* inputMat = defMat(inputData->ImgPtr[n].ImgData, inputData->ImgPtr[n].r, inputData->ImgPtr[n].c);
+//            matrix* inputMat = defMat(inputData->ImgMatPtr[n].ImgData, inputData->ImgMatPtr[n].r, inputData->ImgMatPtr[n].c);
 //            freeMat(inputMat);
-            cnnfw(cnn, inputData->ImgPtr[n]);
-            cnn->L[e] = computeLoss(cnn->Out->p, outputData->LabelPtr[n].Labely);
-            cnnbp();
-            gradient_update(cnn, opts, inputData->ImgPtr[n]);
+            cnnfw(cnn, inputData->ImgMatPtr[n]);
+//            cnn->L[epoch] = computeLoss(cnn->Out->p, outputData->LabelPtr[n].Labely);
+            cnnbp(cnn, outputData->LabelPtr[n].LabelData);
+            gradient_update(cnn, opts, inputData->ImgMatPtr[n]);
 
             cnnclear(cnn);
+            float l=0.0;
+            int i;
+            for(i=0;i<cnn->Out->outputNum;i++)
+                l=l+cnn->e[i]*cnn->e[i];
+            if(n==0)
+                cnn->L[n]=l/(float)2.0;
+            else
+                cnn->L[n]=cnn->L[n-1]*0.99+0.01*l/(float)2.0;
+            printf("        n = %d,     loss = %f", n, cnn->L[n]);
         }
     }
+    printf("end trainModel\n");
 };
 
 
@@ -529,7 +541,7 @@ float testModel(CNN* cnn, ImgArr inputData, LabelArr outputData, int testNum){
     int sumOfCorrect = 0;
     int n;
     for (n=0; n<testNum; n++){
-        cnnfw(cnn, inputData->ImgPtr[n]);
+        cnnfw(cnn, inputData->ImgMatPtr[n]);
         int i, maxIndex=0;
         double max;
         for (i=0; i<cnn->Out->outputNum; i++){
