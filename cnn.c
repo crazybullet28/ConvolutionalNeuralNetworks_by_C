@@ -550,9 +550,12 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, i
 //            printf("[test] inputData->ImgMatPtr[%d] - %d*%d\n", n, inputData->ImgMatPtr[n]->row, inputData->ImgMatPtr[n]->column);
             gradient_update(cnn, opts, inputData->ImgMatPtr[n]);
 
-            char saveFilePath[10];
-            sprintf(saveFilePath, "cnnData_%d_%d.txt", epoch, n);
-            cnnSaveData(cnn, inputData->ImgMatPtr[n], saveFilePath);
+            char saveFilePath[30];
+            sprintf(saveFilePath, "cnnOutput_%d_%d.txt", epoch, n);
+            cnnSaveOutputData(cnn, inputData->ImgMatPtr[n], saveFilePath);
+
+            sprintf(saveFilePath, "cnnWeight_%d_%d.txt", epoch, n);
+            cnnSaveWeightData(cnn, saveFilePath);
 
             cnnclear(cnn);
             float l=0.0;
@@ -585,7 +588,7 @@ float testModel(CNN* cnn, ImgArr inputData, LabelArr outputData, int testNum){
     return sumOfCorrect/(float) testNum;
 };
 
-void cnnSaveData(CNN* cnn, matrix* inMat, const char* filename){
+void cnnSaveOutputData(CNN *cnn, matrix *inMat, const char *filename){
     FILE  *fp=NULL;
     fp=fopen(filename,"wb");
     if(fp==NULL)
@@ -665,6 +668,61 @@ void cnnSaveData(CNN* cnn, matrix* inMat, const char* filename){
     fprintf(fp, "Out output p:\n");
     for(i=0;i<cnn->Out->outputNum;i++){
         fprintf(fp, "%.4f  ", cnn->Out->p[i]);
+    }
+    fprintf(fp, "\n--------------------\n");
+
+
+    fclose(fp);
+}
+
+void cnnSaveWeightData(CNN *cnn, const char *filename){
+    FILE  *fp=NULL;
+    fp=fopen(filename,"wb");
+    if(fp==NULL)
+        printf("write file %s failed\n", filename);
+
+    int i,j,r,c;
+
+    // C1
+    fprintf(fp, "C1 map:\n");
+    for(i=0;i<cnn->C1->inChannels;i++){
+        for(j=0;j<cnn->C1->outChannels;j++){
+            for(r=0;r<cnn->C1->mapSize;r++){
+                for (c=0;c<cnn->C1->mapSize;c++){
+                    fprintf(fp, "%.4f  ", *getMatVal(cnn->C1->mapWeight[i][j], r, c));
+                }
+                fprintf(fp, "\n");
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n");
+    }
+
+    fprintf(fp, "\n--------------------\n");
+
+    // C3
+    fprintf(fp, "C3 map:\n");
+    for(i=0;i<cnn->C3->inChannels;i++){
+        for(j=0;j<cnn->C3->outChannels;j++){
+            for(r=0;r<cnn->C3->mapSize;r++){
+                for (c=0;c<cnn->C3->mapSize;c++){
+                    fprintf(fp, "%.4f  ", *getMatVal(cnn->C3->mapWeight[i][j], r, c));
+                }
+                fprintf(fp, "\n");
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n");
+    }
+    fprintf(fp, "\n--------------------\n");
+
+    // Out
+    fprintf(fp, "Out weight:\n");
+    for(i=0;i<cnn->Out->inputNum;i++){
+        for(j=0;j<cnn->Out->outputNum;j++){
+            fprintf(fp, "%.4f  ", *getMatVal(cnn->Out->weight, i, j));
+        }
+        fprintf(fp, "\n");
     }
     fprintf(fp, "\n--------------------\n");
 
