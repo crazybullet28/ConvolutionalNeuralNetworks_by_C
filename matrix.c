@@ -75,6 +75,14 @@ matrix* defMat(float** data, int r, int c){
     return res;
 };
 
+matrix* copyMat(matrix* in){
+    matrix* res = initMat(in->row, in->column, 0);
+    int i;
+    for (i=0; i<in->row*in->column; i++){
+        res->val[i] = in->val[i];
+    }
+    return res;
+}
 
 void resizeMat(matrix* self, int r, int c){
     if (r*c != self->row*self->column){
