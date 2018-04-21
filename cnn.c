@@ -402,7 +402,7 @@ void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat){
     //C1
     for(i=0;i<cnn->C1->outChannels;i++){
         for(j=0;j<cnn->C1->inChannels;j++){
-            matrix* rot_input = initMat(cnn->C1->inputHeight,cnn->C1->inputWidth,1);
+            matrix* rot_input = initMat(cnn->C1->inputHeight+4,cnn->C1->inputWidth+4,1);
             rotate180Mat(rot_input,inMat);
             covolution_once(cnn->C1->dmapWeight[j][i], rot_input,cnn->C1->d[i], cnn->C1->mapSize, cnn->C1->mapSize, 0);
             matrix* minus_weight = initMat(cnn->C1->mapSize,cnn->C1->mapSize,1);
