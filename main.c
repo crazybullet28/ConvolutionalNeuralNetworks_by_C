@@ -3,7 +3,7 @@
 #include "cnn.h"
 
 int main() {
-    srand(100);
+//    srand(100);
 //    const char parentPath[] = "E:/MyDocuments/Documents/CLionProjects/Parallel_Proj/";
 
     LabelArr testLabel=read_Lable("E:/MyDocuments/Documents/CLionProjects/Parallel_Proj/Minst/train-labels.idx1-ubyte");
