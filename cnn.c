@@ -441,7 +441,7 @@ void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat){
                 Out_input[i*row*col+r*col+c] = *getMatVal(cnn->S4->y[i],r,c);
     for(j=0;j<cnn->Out->outputNum;j++){
         for(i=0;i<cnn->Out->inputNum;i++)
-            *getMatVal(cnn->Out->weight,j,i) = *getMatVal(cnn->Out->weight,j,i) - opts.eta*cnn->Out->d[j]*Out_input[i];
+            *getMatVal(cnn->Out->weight,i,j) = *getMatVal(cnn->Out->weight,i,j) - opts.eta*cnn->Out->d[j]*Out_input[i];
         cnn->Out->bias[j] = cnn->Out->bias[j] - opts.eta*cnn->Out->d[j];
     }
     free(Out_input);
