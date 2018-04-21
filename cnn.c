@@ -342,7 +342,7 @@ void cnnbp(CNN* cnn, float* outputData){
             for(c=0;c<col;c++)
                 for(j=0;j<cnn->Out->outputNum;j++){
                     int wInt=i*col*row+r*col+c;
-                    *getMatVal(cnn->S4->d[i], r, c) = *getMatVal(cnn->S4->d[i],r,c)+cnn->Out->d[j]*(*getMatVal(cnn->Out->weight,i,wInt));
+                    *getMatVal(cnn->S4->d[i], r, c) = *getMatVal(cnn->S4->d[i],r,c)+cnn->Out->d[j]*(*getMatVal(cnn->Out->weight,wInt,j));
                 }
 
     // C3层
