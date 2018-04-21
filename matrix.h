@@ -29,6 +29,8 @@ void resetMat(matrix* self, int r, int c);
 
 matrix* defMat(float** data, int r, int c);
 
+matrix* copyMat(matrix* in);
+
 void resizeMat(matrix* self, int r, int c);
 
 void addMat(matrix* res, matrix* a, matrix* b);

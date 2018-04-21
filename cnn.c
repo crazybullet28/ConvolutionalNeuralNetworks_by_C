@@ -140,7 +140,7 @@ OutLayer* initOutLayer(int inputNum,int outputNum){
 };
 
 void cnn_setup(CNN* cnn, int inputHeight, int inputWidth, int outNum){
-    printf("start cnn_setup\n");
+    printf("[test] start cnn_setup\n");
     int inH = inputHeight;
     int inW = inputWidth;
     cnn->C1 = initCovLayer(inH, inW, 5, 1, 6, 2);       // 28*28 -> 32*32 -> 28*28
@@ -158,7 +158,7 @@ void cnn_setup(CNN* cnn, int inputHeight, int inputWidth, int outNum){
     cnn->Out = initOutLayer(inH*inW * 12, outNum);        // 300 -> 10
 
     cnn->e=(float *)malloc(cnn->Out->outputNum*sizeof(float));
-    printf("end trainModel\n");
+    printf("[test] end trainModel\n");
 };
 
 
@@ -287,9 +287,9 @@ float computeLoss(float* outArr, int labely){
 };
 
 void cnnfw(CNN* cnn, matrix* inMat){       // only one matrix a time.           outArr has already been malloc
-    printf("start cnnfw\n");
+    printf("[test] start cnnfw\n");
     matrix** input = (matrix**)malloc(sizeof(matrix*));
-    input[0] = inMat;
+    input[0] = copyMat(inMat);
     convolution(cnn->C1, input);
     pooling(cnn->S2, cnn->C1->y);
     convolution(cnn->C3, cnn->S2->y);
@@ -305,7 +305,7 @@ void cnnfw(CNN* cnn, matrix* inMat){       // only one matrix a time.           
 
     freeMat(input[0]);
     free(input);
-    printf("end cnnfw\n");
+    printf("[test] end cnnfw\n");
 }
 
 matrix* UpSample(matrix* mat,int multiple_c,int multiple_r,int mapsize){
@@ -324,7 +324,7 @@ matrix* UpSample(matrix* mat,int multiple_c,int multiple_r,int mapsize){
 }
 
 void cnnbp(CNN* cnn, float* outputData){
-    printf("start cnnbw\n");
+    printf("[test] start cnnbw\n");
     int i,j,c,r; // 将误差保存到网络中
     for(i=0;i<cnn->Out->outputNum;i++)
         cnn->e[i]=cnn->Out->y[i]-outputData[i];
@@ -392,7 +392,7 @@ void cnnbp(CNN* cnn, float* outputData){
         free(C1e);
     }
 
-    printf("end cnnbw\n");
+    printf("[test] end cnnbw\n");
 }
 
 
@@ -507,7 +507,7 @@ void cnnclear(CNN* cnn){
 }
 
 void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, int trainNum){           // may be slow?
-    printf("start trainModel\n");
+    printf("[test] start trainModel\n");
     cnn->L=(float *)malloc(opts.numepochs*sizeof(float));
     int epoch;
     for (epoch=0; epoch<opts.numepochs; epoch++){
@@ -516,9 +516,12 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, i
         for (n=0; n<trainNum; n++){
 //            matrix* inputMat = defMat(inputData->ImgMatPtr[n].ImgData, inputData->ImgMatPtr[n].r, inputData->ImgMatPtr[n].c);
 //            freeMat(inputMat);
+            printf("[test] inputData->ImgMatPtr[%d] - %d*%d\n", n, inputData->ImgMatPtr[n]->row, inputData->ImgMatPtr[n]->column);
             cnnfw(cnn, inputData->ImgMatPtr[n]);
+            printf("[test] inputData->ImgMatPtr[%d] - %d*%d\n", n, inputData->ImgMatPtr[n]->row, inputData->ImgMatPtr[n]->column);
 //            cnn->L[epoch] = computeLoss(cnn->Out->p, outputData->LabelPtr[n].Labely);
             cnnbp(cnn, outputData->LabelPtr[n].LabelData);
+            printf("[test] inputData->ImgMatPtr[%d] - %d*%d\n", n, inputData->ImgMatPtr[n]->row, inputData->ImgMatPtr[n]->column);
             gradient_update(cnn, opts, inputData->ImgMatPtr[n]);
 
             cnnclear(cnn);
@@ -533,7 +536,7 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, i
             printf("        n = %d,     loss = %f", n, cnn->L[n]);
         }
     }
-    printf("end trainModel\n");
+    printf("[test] end trainModel\n");
 };
 
 
