@@ -136,6 +136,6 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, i
 
 float testModel(CNN* cnn, ImgArr inputData, LabelArr outputData, int testNum);
 
-
+void cnnSaveData(CNN* cnn, matrix* inMat, const char* filename);
 
 #endif //PARALLEL_PROJ_CNN_H

@@ -516,13 +516,17 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, i
         for (n=0; n<trainNum; n++){
 //            matrix* inputMat = defMat(inputData->ImgMatPtr[n].ImgData, inputData->ImgMatPtr[n].r, inputData->ImgMatPtr[n].c);
 //            freeMat(inputMat);
-            printf("[test] inputData->ImgMatPtr[%d] - %d*%d\n", n, inputData->ImgMatPtr[n]->row, inputData->ImgMatPtr[n]->column);
+//            printf("[test] inputData->ImgMatPtr[%d] - %d*%d\n", n, inputData->ImgMatPtr[n]->row, inputData->ImgMatPtr[n]->column);
             cnnfw(cnn, inputData->ImgMatPtr[n]);
-            printf("[test] inputData->ImgMatPtr[%d] - %d*%d\n", n, inputData->ImgMatPtr[n]->row, inputData->ImgMatPtr[n]->column);
+//            printf("[test] inputData->ImgMatPtr[%d] - %d*%d\n", n, inputData->ImgMatPtr[n]->row, inputData->ImgMatPtr[n]->column);
 //            cnn->L[epoch] = computeLoss(cnn->Out->p, outputData->LabelPtr[n].Labely);
             cnnbp(cnn, outputData->LabelPtr[n].LabelData);
-            printf("[test] inputData->ImgMatPtr[%d] - %d*%d\n", n, inputData->ImgMatPtr[n]->row, inputData->ImgMatPtr[n]->column);
+//            printf("[test] inputData->ImgMatPtr[%d] - %d*%d\n", n, inputData->ImgMatPtr[n]->row, inputData->ImgMatPtr[n]->column);
             gradient_update(cnn, opts, inputData->ImgMatPtr[n]);
+
+            char saveFilePath[10];
+            sprintf(saveFilePath, "cnnData_%d_%d.txt", epoch, n);
+            cnnSaveData(cnn, inputData->ImgMatPtr[n], saveFilePath);
 
             cnnclear(cnn);
             float l=0.0;
@@ -533,7 +537,7 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, i
                 cnn->L[n]=l/(float)2.0;
             else
                 cnn->L[n]=cnn->L[n-1]*0.99+0.01*l/(float)2.0;
-            printf("        n = %d,     loss = %f", n, cnn->L[n]);
+            printf("        n = %d,     loss = %f\n", n, cnn->L[n]);
         }
     }
     printf("[test] end trainModel\n");
@@ -554,3 +558,79 @@ float testModel(CNN* cnn, ImgArr inputData, LabelArr outputData, int testNum){
     }
     return sumOfCorrect/(float) testNum;
 };
+
+void cnnSaveData(CNN* cnn, matrix* inMat, const char* filename){
+    FILE  *fp=NULL;
+    fp=fopen(filename,"wb");
+    if(fp==NULL)
+        printf("write file %s failed\n", filename);
+
+    int i,j,r,c;
+
+    fprintf(fp, "InMat:\n");
+    for (i=0; i<inMat->row; i++){
+        for (j=0; j<inMat->column; j++){
+            fprintf(fp, "%.4f  ", *getMatVal(inMat, i, j));
+        }
+        fprintf(fp, "\n");
+    }
+
+    fprintf(fp, "\n--------------------\n");
+
+    // C1
+    fprintf(fp, "C1 output:\n");
+    for(i=0;i<cnn->C1->outChannels;i++){
+        for(j=0;j<cnn->C1->outputHeight;j++){
+            for(r=0;r<cnn->C1->outputWidth;r++){
+                fprintf(fp, "%.4f  ", *getMatVal(cnn->C1->y[i], j, r));
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n");
+    }
+
+    // S2
+    fprintf(fp, "S2 output:\n");
+    for(i=0;i<cnn->S2->outChannels;i++){
+        for(j=0;j<cnn->S2->outputHeight;j++){
+            for(r=0;r<cnn->S2->outputWidth;r++){
+                fprintf(fp, "%.4f  ", *getMatVal(cnn->S2->y[i], j, r));
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n");
+    }
+
+    // C3
+    fprintf(fp, "C3 output:\n");
+    for(i=0;i<cnn->C3->outChannels;i++){
+        for(j=0;j<cnn->C3->outputHeight;j++){
+            for(r=0;r<cnn->C3->outputWidth;r++){
+                fprintf(fp, "%.4f  ", *getMatVal(cnn->C3->y[i], j, r));
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n");
+    }
+
+    // S4
+    fprintf(fp, "S4 output:\n");
+    for(i=0;i<cnn->S4->outChannels;i++){
+        for(j=0;j<cnn->S4->outputHeight;j++){
+            for(r=0;r<cnn->S4->outputWidth;r++){
+                fprintf(fp, "%.4f  ", *getMatVal(cnn->S4->y[i], j, r));
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n");
+    }
+
+    // Out
+    fprintf(fp, "Out output:\n");
+    for(i=0;i<cnn->Out->outputNum;i++){
+        fprintf(fp, "%.4f  ", cnn->Out->y[i]);
+    }
+    fprintf(fp, "\n");
+
+    fclose(fp);
+}

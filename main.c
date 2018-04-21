@@ -3,6 +3,7 @@
 #include "cnn.h"
 
 int main() {
+    srand(100);
 //    const char parentPath[] = "E:/MyDocuments/Documents/CLionProjects/Parallel_Proj/";
 
     LabelArr testLabel=read_Lable("E:/MyDocuments/Documents/CLionProjects/Parallel_Proj/Minst/train-labels.idx1-ubyte");
@@ -26,6 +27,7 @@ int main() {
         printf("write file failed\n");
     fwrite(cnn->L,sizeof(float),trainNum,fp);
     fclose(fp);
+
 
     return 0;
 }
