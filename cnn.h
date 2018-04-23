@@ -35,7 +35,7 @@ typedef struct convolutional_layer{
     matrix** y;     // 激活函数后神经元的输出
 
     // 输出像素的局部梯度
-    matrix** d;     // 网络的局部梯度,δ值
+    matrix** d;     // 网络的局部梯度,δ值              outCHannels * (outputHeight * outputWidth)
 } CovLayer;
 
 typedef struct pooling_layer{
@@ -55,7 +55,7 @@ typedef struct pooling_layer{
 //    float*** y; // output, without active
     matrix** y;
 //    float*** d; // local gradient
-    matrix** d;
+    matrix** d;                          // outCHannels * (outputHeight * outputWidth)
 } PoolLayer;
 
 typedef struct nn_layer{
@@ -72,7 +72,7 @@ typedef struct nn_layer{
     float* v; // 进入激活函数的输入值
     float* y; // 激活函数后神经元的输出
     float* p; // softMax(y)
-    float* d; // 网络的局部梯度,δ值
+    float* d; // 网络的局部梯度,δ值                 outputNum
 
     bool isFullConnect; //是否为全连接
 } OutLayer;
@@ -136,8 +136,10 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, i
 
 float testModel(CNN* cnn, ImgArr inputData, LabelArr outputData, int testNum);
 
-void cnnSaveOutputData(CNN *cnn, matrix *inMat, const char *filename);
+void cnnSaveOutput(CNN *cnn, matrix *inMat, const char *filename);
 
-void cnnSaveWeightData(CNN *cnn, const char *filename);
+void cnnSaveWeight(CNN *cnn, const char *filename);
+
+void cnnSaveD(CNN *cnn, const char *filename);
 
 #endif //PARALLEL_PROJ_CNN_H
