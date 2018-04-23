@@ -2,7 +2,6 @@
 // Created by crazybullet on 2018/4/12.
 //
 
-#include <math.h>
 //#include <mapi.h>
 //#include <mem.h>
 #include "cnn.h"
@@ -61,14 +60,17 @@ CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChann
             covLayer->dmapWeight[i][j] = initMat(mapSize, mapSize, 0);
             for (k=0; k<mapSize; k++){
                 for (l=0; l<mapSize; l++){
-//                    covLayer->mapData[i][j][k][l] = (rand()/(float)(RAND_MAX+1)-0.5)*2 * sqrt(6.0/(mapSize*mapSize*inChannels+outChannels));             // xavier initialize
-                    *getMatVal(covLayer->mapWeight[i][j], k, l) = (rand()/(float)(RAND_MAX+1)-0.5)*2 * sqrt(6.0/(mapSize*mapSize*inChannels+outChannels));
+//                    covLayer->mapData[i][j][k][l] = (rand()/((float)RAND_MAX+1)-0.5)*2 * sqrt(6.0/(mapSize*mapSize*inChannels+outChannels));             // xavier initialize
+                    *getMatVal(covLayer->mapWeight[i][j], k, l) = (rand()/((float)RAND_MAX+1)-0.5)*2 * sqrt(6.0/(mapSize*mapSize*inChannels+outChannels));
                 }
             }
         }
     }
 
-    covLayer->bias = (float*) malloc(inChannels*sizeof(float));
+    covLayer->bias = (float*) malloc(outChannels*sizeof(float));
+    for (i=0; i<outChannels; i++){
+        covLayer->bias[i] = 0;
+    }
 
     int outW=inputWidth-mapSize+1+2*paddingForward;
     int outH=inputHeight-mapSize+1+2*paddingForward;
@@ -131,9 +133,14 @@ OutLayer* initOutLayer(int inputNum,int outputNum){
 //    srand(100);
     for (i=0; i<inputNum; i++){
         for (j=0; j<outputNum; j++){
-            *getMatVal(outLayer->weight, i, j)=(rand()/(float)(RAND_MAX+1)-0.5)*2 * sqrt(6.0/(inputNum+outputNum));
+            *getMatVal(outLayer->weight, i, j)=(rand()/((float)RAND_MAX+1)-0.5)*2 * sqrt(6.0/(inputNum+outputNum));
         }
     }
+
+    for (i=0;i<outputNum;i++){
+        outLayer->bias[i] = 0;
+    }
+
 
     outLayer->isFullConnect=1;
     return outLayer;
@@ -146,13 +153,13 @@ void cnn_setup(CNN* cnn, int inputHeight, int inputWidth, int outNum){
     cnn->C1 = initCovLayer(inH, inW, 5, 1, 6, 2);       // 28*28 -> 32*32 -> 28*28
     inH = cnn->C1->outputHeight;
     inW = cnn->C1->outputWidth;
-    cnn->S2 = initPoolLayer(inH, inW, 2, 6, 6, 0);      // 28*28 -> 14*14
+    cnn->S2 = initPoolLayer(inH, inW, 2, 6, 6, 1);      // 28*28 -> 14*14
     inH = cnn->S2->outputHeight;
     inW = cnn->S2->outputWidth;
     cnn->C3 = initCovLayer(inH, inW, 5, 6, 12, 0);      // 14*14 -> 10*10
     inH = cnn->C3->outputHeight;
     inW = cnn->C3->outputWidth;
-    cnn->S4 = initPoolLayer(inH, inW, 2, 12, 12, 0);    // 10*10 -> 5*5
+    cnn->S4 = initPoolLayer(inH, inW, 2, 12, 12, 1);    // 10*10 -> 5*5
     inH = cnn->S4->outputHeight;
     inW = cnn->S4->outputWidth;
     cnn->Out = initOutLayer(inH*inW * 12, outNum);        // 300 -> 10
@@ -162,19 +169,28 @@ void cnn_setup(CNN* cnn, int inputHeight, int inputWidth, int outNum){
 };
 
 
-
-
 void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, int padding){
     int mapSize = map->row;
-    int i,j;
+    int i,j, r, c;
+
+    if (outH != inMat->row+2*padding-(mapSize-1) || outW != inMat->row+2*padding-(mapSize-1)){
+        fflush(stdout);
+        fprintf(stderr, "Error in covolution_once. Size output not fit: \nin %d - %d, padding %d, map %d, out %d - %d\n", inMat->row, inMat->column, padding, mapSize, outH, outW);
+        exit(1);
+    }
 
     if (padding==0){
         matrix* tmp = initMat(mapSize, mapSize, 0);
         for (i=0; i<outH; i++){
             for (j=0; j<outW; j++){
-                subMat(tmp, inMat, i, mapSize, j, mapSize);
-                float val = dotMatSum(tmp, map);
-                *getMatVal(v, i, j)=val;
+//                subMat(tmp, inMat, i, mapSize, j, mapSize);
+//                float val = dotMatSum(tmp, map);
+//                *getMatVal(v, i, j)=val;
+                for (r=0; r<map->row; r++){
+                    for (c=0; c<map->column; c++){
+                        *getMatVal(v, i, j)+=*getMatVal(inMat, i+r, j+c)* *getMatVal(map, r, c);
+                    }
+                }
             }
         }
         freeMat(tmp);
@@ -190,12 +206,18 @@ void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, 
         matrix* tmp = initMat(mapSize, mapSize, 0);
         for (i=0; i<outH; i++){
             for (j=0; j<outW; j++){
-                subMat(tmp, newInputMat, i, mapSize, j, mapSize);
-                float val = dotMatSum(tmp, map);
-                *getMatVal(v, i, j)=val;
+//                subMat(tmp, newInputMat, i, mapSize, j, mapSize);
+//                float val = dotMatSum(tmp, map);
+//                *getMatVal(v, i, j)=val;
+                for (r=0; r<map->row; r++){
+                    for (c=0; c<map->column; c++){
+                        *getMatVal(v, i, j)+=*getMatVal(newInputMat, i+r, j+c)* *getMatVal(map, r, c);
+                    }
+                }
             }
         }
         freeMat(tmp);
+        freeMat(newInputMat);
         return;
     }
 };
@@ -262,24 +284,25 @@ void pooling(PoolLayer* S, matrix** inMat){
 };
 
 void nnForward(OutLayer* O, float* inArr){
-    matrix inMat, vMat;     // no need to free
-    inMat.row=1;
-    inMat.column=O->inputNum;
-    inMat.val = inArr;
-
-    vMat.row=1;
-    vMat.column=O->outputNum;
-    vMat.val = O->v;            // modify vMat->val should also modify O->v->val
-
-    mulMat(&vMat, &inMat, O->weight);
+    matrix *inMat, *vMat;
+    inMat = initMat(1, O->inputNum, 0);
     int i;
+    for (i=0; i<O->inputNum; i++){
+        inMat->val[i] = inArr[i];
+    }
+
+    vMat = initMat(1, O->outputNum, 0);
+
+    mulMat(vMat, inMat, O->weight);
     for (i=0; i<O->outputNum; i++){
-        vMat.val[i] += O->bias[i];
-//        O->v[i] = vMat.val[i];
-//        O->y[i] = activate(vMat.val[i]);
-        O->y[i] = vMat.val[i];
+        vMat->val[i] += O->bias[i];
+        O->v[i] = vMat->val[i];
+        O->y[i] = activate(vMat->val[i]);
+//        O->y[i] = vMat.val[i];
     }
     softMax(O->p, O->y, O->outputNum);
+    freeMat(inMat);
+    freeMat(vMat);
 };
 
 float computeLoss(float* outArr, int labely){
@@ -296,10 +319,13 @@ void cnnfw(CNN* cnn, matrix* inMat){       // only one matrix a time.           
     pooling(cnn->S4, cnn->C3->y);
 
     float nn_input[cnn->Out->inputNum];
-    int i;
+    int i, j;
     int tmpLength = cnn->S4->outputWidth * cnn->S4->outputHeight;
     for (i=0; i<cnn->S4->outChannels; i++){
-        memcpy(&nn_input[i*tmpLength], cnn->S4->y[i], tmpLength*sizeof(float));
+        for (j=0; j<tmpLength; j++){
+            nn_input[i*tmpLength+j] = cnn->S4->y[i]->val[j];
+        }
+//        memcpy(&nn_input[i*tmpLength], cnn->S4->y[i], tmpLength*sizeof(float));
     }
     nnForward(cnn->Out, nn_input);
 
@@ -532,26 +558,35 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, i
         printf("Epoch %d \n", epoch);
         int n;
         for (n=0; n<trainNum; n++){
+            char saveFilePath[30];
+            sprintf(saveFilePath, "data/weight/cnnWeight_%d_%d.txt", epoch, n);
+            cnnSaveWeight(cnn, saveFilePath);
+
 //            matrix* inputMat = defMat(inputData->ImgMatPtr[n].ImgData, inputData->ImgMatPtr[n].r, inputData->ImgMatPtr[n].c);
 //            freeMat(inputMat);
-            printf("[test] inputData->ImgMatPtr[%d] - %d*%d\n", n, inputData->ImgMatPtr[n]->row, inputData->ImgMatPtr[n]->column);
             cnnfw(cnn, inputData->ImgMatPtr[n]);
-            printf("[test] inputData->ImgMatPtr[%d] - %d*%d\n", n, inputData->ImgMatPtr[n]->row, inputData->ImgMatPtr[n]->column);
 //            cnn->L[epoch] = computeLoss(cnn->Out->p, outputData->LabelPtr[n].Labely);
             cnnbp(cnn, outputData->LabelPtr[n].LabelData);
-            printf("[test] inputData->ImgMatPtr[%d] - %d*%d\n", n, inputData->ImgMatPtr[n]->row, inputData->ImgMatPtr[n]->column);
+//            printf("[test] inputData->ImgMatPtr[%d] - %d*%d\n", n, inputData->ImgMatPtr[n]->row, inputData->ImgMatPtr[n]->column);
             gradient_update(cnn, opts, inputData->ImgMatPtr[n]);
+
+            sprintf(saveFilePath, "data/output/cnnOutput_%d_%d.txt", epoch, n);
+            cnnSaveOutput(cnn, inputData->ImgMatPtr[n], saveFilePath);
+
+            sprintf(saveFilePath, "data/d/cnnD_%d_%d.txt", epoch, n);
+            cnnSaveD(cnn, saveFilePath);
 
             cnnclear(cnn);
             float l=0.0;
-            int i;
-            for(i=0;i<cnn->Out->outputNum;i++)
-                l=l+cnn->e[i]*cnn->e[i];
-            if(n==0)
-                cnn->L[n]=l/(float)2.0;
-            else
-                cnn->L[n]=cnn->L[n-1]*0.99+0.01*l/(float)2.0;
-            printf("        n = %d,     loss = %f", n, cnn->L[n]);
+//            int i;
+//            for(i=0;i<cnn->Out->outputNum;i++)
+//                l=l+cnn->e[i]*cnn->e[i];
+//            if(n==0)
+//                cnn->L[n]=l/(float)2.0;
+//            else
+//                cnn->L[n]=cnn->L[n-1]*0.99+0.01*l/(float)2.0;
+            l = computeLoss(cnn->Out->p, outputData->LabelPtr[n].Labely);
+            printf("\"Epoch %d,        n = %d,     loss = %f\n", epoch, n, l);
         }
     }
     printf("[test] end trainModel\n");
@@ -572,3 +607,339 @@ float testModel(CNN* cnn, ImgArr inputData, LabelArr outputData, int testNum){
     }
     return sumOfCorrect/(float) testNum;
 };
+
+void cnnSaveOutput(CNN *cnn, matrix *inMat, const char *filename){
+    FILE  *fp=NULL;
+    fp=fopen(filename,"wb");
+    if(fp==NULL)
+        printf("write file %s failed\n", filename);
+
+    int i,j,r,c;
+
+    fprintf(fp, "InMat:\n");
+    for (i=0; i<inMat->row; i++){
+        for (j=0; j<inMat->column; j++){
+            fprintf(fp, "%.4f  ", *getMatVal(inMat, i, j));
+        }
+        fprintf(fp, "\n");
+    }
+    fprintf(fp, "\n--------------------\n");
+
+
+    // C1
+    fprintf(fp, "C1 output:\n");
+    for(i=0;i<cnn->C1->outChannels;i++){
+        for(j=0;j<cnn->C1->outputHeight;j++){
+            for(r=0;r<cnn->C1->outputWidth;r++){
+                fprintf(fp, "%.4f  ", *getMatVal(cnn->C1->y[i], j, r));
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n");
+    }
+    fprintf(fp, "\n--------------------\n");
+
+    // S2
+    fprintf(fp, "S2 output:\n");
+    for(i=0;i<cnn->S2->outChannels;i++){
+        for(j=0;j<cnn->S2->outputHeight;j++){
+            for(r=0;r<cnn->S2->outputWidth;r++){
+                fprintf(fp, "%.4f  ", *getMatVal(cnn->S2->y[i], j, r));
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n");
+    }
+    fprintf(fp, "\n--------------------\n");
+
+    // C3
+    fprintf(fp, "C3 output:\n");
+    for(i=0;i<cnn->C3->outChannels;i++){
+        for(j=0;j<cnn->C3->outputHeight;j++){
+            for(r=0;r<cnn->C3->outputWidth;r++){
+                fprintf(fp, "%.4f  ", *getMatVal(cnn->C3->y[i], j, r));
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n");
+    }
+    fprintf(fp, "\n--------------------\n");
+
+    // S4
+    fprintf(fp, "S4 output:\n");
+    for(i=0;i<cnn->S4->outChannels;i++){
+        for(j=0;j<cnn->S4->outputHeight;j++){
+            for(r=0;r<cnn->S4->outputWidth;r++){
+                fprintf(fp, "%.4f  ", *getMatVal(cnn->S4->y[i], j, r));
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n");
+    }
+    fprintf(fp, "\n--------------------\n");
+
+    // Out
+    fprintf(fp, "Out output y:\n");
+    for(i=0;i<cnn->Out->outputNum;i++){
+        fprintf(fp, "%.4f  ", cnn->Out->y[i]);
+    }
+    fprintf(fp, "\n--------------------\n");
+
+    fprintf(fp, "Out output p:\n");
+    for(i=0;i<cnn->Out->outputNum;i++){
+        fprintf(fp, "%.4f  ", cnn->Out->p[i]);
+    }
+    fprintf(fp, "\n--------------------\n");
+
+
+    fclose(fp);
+}
+
+void cnnSaveWeight(CNN *cnn, const char *filename){
+    FILE  *fp=NULL;
+    fp=fopen(filename,"wb");
+    if(fp==NULL)
+        printf("write file %s failed\n", filename);
+
+    int i,j,r,c;
+
+    // C1
+    fprintf(fp, "C1 map:\n");
+    for(i=0;i<cnn->C1->inChannels;i++){
+        for(j=0;j<cnn->C1->outChannels;j++){
+            for(r=0;r<cnn->C1->mapSize;r++){
+                for (c=0;c<cnn->C1->mapSize;c++){
+                    float val = *getMatVal(cnn->C1->mapWeight[i][j], r, c);
+                    if (val>=0){
+                        fprintf(fp, " %.4f  ", val);
+                    }else{
+                        fprintf(fp, "%.4f  ", val);
+                    }
+                }
+                fprintf(fp, "\n");
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n");
+    }
+
+    fprintf(fp, "\n--------------------\n");
+
+    // C3
+    fprintf(fp, "C3 map:\n");
+    for(i=0;i<cnn->C3->inChannels;i++){
+        for(j=0;j<cnn->C3->outChannels;j++){
+            for(r=0;r<cnn->C3->mapSize;r++){
+                for (c=0;c<cnn->C3->mapSize;c++){
+                    float val = *getMatVal(cnn->C3->mapWeight[i][j], r, c);
+                    if (val>=0){
+                        fprintf(fp, " %.4f  ", val);
+                    }else{
+                        fprintf(fp, "%.4f  ", val);
+                    }
+                }
+                fprintf(fp, "\n");
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n");
+    }
+    fprintf(fp, "\n--------------------\n");
+
+    // Out
+    fprintf(fp, "Out weight:\n");
+    for(i=0;i<cnn->Out->inputNum;i++){
+        for(j=0;j<cnn->Out->outputNum;j++){
+            float val = *getMatVal(cnn->Out->weight, i, j);
+            if (val>=0){
+                fprintf(fp, " %.4f  ", val);
+            }else{
+                fprintf(fp, "%.4f  ", val);
+            }
+        }
+        fprintf(fp, "\n");
+    }
+    fprintf(fp, "\n--------------------\n");
+
+
+    fclose(fp);
+}
+
+void cnnSaveD(CNN *cnn, const char *filename){
+    FILE  *fp=NULL;
+    fp=fopen(filename,"wb");
+    if(fp==NULL)
+        printf("write file %s failed\n", filename);
+
+    int i,j,r,c;
+
+    // C1
+    fprintf(fp, "C1 d:\n");
+    for(j=0;j<cnn->C1->outChannels;j++){
+        for(r=0;r<cnn->C1->d[j]->row;r++){
+            for (c=0;c<cnn->C1->d[j]->column;c++){
+                float val = *getMatVal(cnn->C1->d[j], r, c);
+                if (val>=0){
+                    fprintf(fp, " %.4f  ", val);
+                }else{
+                    fprintf(fp, "%.4f  ", val);
+                }
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n");
+    }
+
+    fprintf(fp, "\n--------------------\n");
+
+    // S2
+    fprintf(fp, "S2 d:\n");
+    for(j=0;j<cnn->S2->outChannels;j++){
+        for(r=0;r<cnn->S2->d[j]->row;r++){
+            for (c=0;c<cnn->S2->d[j]->column;c++){
+                float val = *getMatVal(cnn->S2->d[j], r, c);
+                if (val>=0){
+                    fprintf(fp, " %.4f  ", val);
+                }else{
+                    fprintf(fp, "%.4f  ", val);
+                }
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n");
+    }
+
+    fprintf(fp, "\n--------------------\n");
+
+    // C3
+    fprintf(fp, "C3 d:\n");
+    for(j=0;j<cnn->C3->outChannels;j++){
+        for(r=0;r<cnn->C3->d[j]->row;r++){
+            for (c=0;c<cnn->C3->d[j]->column;c++){
+                float val = *getMatVal(cnn->C3->d[j], r, c);
+                if (val>=0){
+                    fprintf(fp, " %.4f  ", val);
+                }else{
+                    fprintf(fp, "%.4f  ", val);
+                }
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n");
+    }
+
+    fprintf(fp, "\n--------------------\n");
+
+    // S4
+    fprintf(fp, "S4 d:\n");
+    for(j=0;j<cnn->S4->outChannels;j++){
+        for(r=0;r<cnn->S4->d[j]->row;r++){
+            for (c=0;c<cnn->S4->d[j]->column;c++){
+                float val = *getMatVal(cnn->S4->d[j], r, c);
+                if (val>=0){
+                    fprintf(fp, " %.4f  ", val);
+                }else{
+                    fprintf(fp, "%.4f  ", val);
+                }
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n");
+    }
+
+    fprintf(fp, "\n--------------------\n");
+
+    // Out
+    fprintf(fp, "Out d:\n");
+    for(j=0;j<cnn->Out->outputNum;j++){
+        float val = cnn->Out->d[j];
+        if (val>=0){
+            fprintf(fp, " %.4f  ", val);
+        }else{
+            fprintf(fp, "%.4f  ", val);
+        }
+    }
+        fprintf(fp, "\n");
+    fprintf(fp, "\n--------------------\n");
+
+
+    fclose(fp);
+}
+
+//void cnnSaveData2img(CNN* cnn, matrix* inMat, const char* filename){
+//    FILE  *fp=NULL;
+//    int i,j,r,c;
+//    char fileFullName[20];
+//
+////    fprintf(fp, "InMat:\n");
+//
+//    sprintf(fileFullName, "%s_inMat.ppm", filename);
+//    fp = fopen(fileFullName, "wb");
+//    fprintf(fp, "P6\n%i %i 255\n", inMat->column, inMat->row);
+//    for (i=0; i<inMat->row; i++){
+//        for (j=0; j<inMat->column; j++){
+//            fputc((int)(*getMatVal(inMat, i, j)*255), fp);
+//            fputc((int)(*getMatVal(inMat, i, j)*255), fp);
+//            fputc((int)(*getMatVal(inMat, i, j)*255), fp);
+//        }
+//    }
+//    fclose(fp);
+//
+//    // C1
+//    for(i=0;i<cnn->C1->outChannels;i++){
+//        sprintf(fileFullName, "%s_C1Mat%d.ppm", filename, i);
+//        fp = fopen(fileFullName, "wb");
+//        fprintf(fp, "P6\n%i %i 255\n", cnn->C1->outputWidth, cnn->C1->outputHeight);
+//        for(j=0;j<cnn->C1->outputHeight;j++){
+//            for(r=0;r<cnn->C1->outputWidth;r++){
+//                fputc((int)(*getMatVal(cnn->C1->y[i], j, r)*255), fp);
+//            }
+//        }
+//        fclose(fp);
+//    }
+//
+//    // S2
+//    fprintf(fp, "S2 output:\n");
+//    for(i=0;i<cnn->S2->outChannels;i++){
+//        for(j=0;j<cnn->S2->outputHeight;j++){
+//            for(r=0;r<cnn->S2->outputWidth;r++){
+//                fprintf(fp, "%.4f  ", *getMatVal(cnn->S2->y[i], j, r));
+//            }
+//            fprintf(fp, "\n");
+//        }
+//        fprintf(fp, "\n");
+//    }
+//
+//    // C3
+//    fprintf(fp, "C3 output:\n");
+//    for(i=0;i<cnn->C3->outChannels;i++){
+//        for(j=0;j<cnn->C3->outputHeight;j++){
+//            for(r=0;r<cnn->C3->outputWidth;r++){
+//                fprintf(fp, "%.4f  ", *getMatVal(cnn->C3->y[i], j, r));
+//            }
+//            fprintf(fp, "\n");
+//        }
+//        fprintf(fp, "\n");
+//    }
+//
+//    // S4
+//    fprintf(fp, "S4 output:\n");
+//    for(i=0;i<cnn->S4->outChannels;i++){
+//        for(j=0;j<cnn->S4->outputHeight;j++){
+//            for(r=0;r<cnn->S4->outputWidth;r++){
+//                fprintf(fp, "%.4f  ", *getMatVal(cnn->S4->y[i], j, r));
+//            }
+//            fprintf(fp, "\n");
+//        }
+//        fprintf(fp, "\n");
+//    }
+//
+//    // Out
+//    fprintf(fp, "Out output:\n");
+//    for(i=0;i<cnn->Out->outputNum;i++){
+//        fprintf(fp, "%.4f  ", cnn->Out->y[i]);
+//    }
+//    fprintf(fp, "\n");
+//
+//    fclose(fp);
+//}
