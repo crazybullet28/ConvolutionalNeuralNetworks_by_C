@@ -314,11 +314,11 @@ matrix* UpSample(matrix* mat,int multiple_c,int multiple_r,int mapsize){
     for(j=0;j<mapsize*multiple_r;j=j+mapsize){
         for(i=0;i<mapsize*multiple_c;i=i+mapsize)// 宽的扩充
             for(m=0;m<mapsize;m++)
-                *getMatVal(res,j,i+m)=*getMatVal(mat,j/mapsize,i/mapsize)/(float)(mapsize*mapsize);
+                *getMatVal(res,j,i+m)=(*getMatVal(mat,j/mapsize,i/mapsize))/(float)(mapsize*mapsize);
 
         for(n=1;n<mapsize;n++)      //  高的扩充
             for(i=0;i<multiple_c*mapsize;i++)
-                *getMatVal(res,j+n,i)=*getMatVal(res,j,i)/(float)(mapsize*mapsize);
+                *getMatVal(res,j+n,i)=(*getMatVal(res,j,i))/(float)(mapsize*mapsize);
     }
     return res;
 }
@@ -402,15 +402,24 @@ void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat){
     //C1
     for(i=0;i<cnn->C1->outChannels;i++){
         for(j=0;j<cnn->C1->inChannels;j++){
-            matrix* rot_input = initMat(cnn->C1->inputHeight,cnn->C1->inputWidth,1);
-            rotate180Mat(rot_input,inMat);
-            covolution_once(cnn->C1->dmapWeight[j][i], rot_input,cnn->C1->d[i], cnn->C1->mapSize, cnn->C1->mapSize, 2);
+            matrix* rot_d = initMat(cnn->C1->outputHeight,cnn->C1->outputWidth,1);
+            rotate180Mat(rot_d,cnn->C1->d[i]);
+            covolution_once(cnn->C1->dmapWeight[j][i],inMat,rot_d,cnn->C1->mapSize,cnn->C1->mapSize,0);
             matrix* minus_weight = initMat(cnn->C1->mapSize,cnn->C1->mapSize,1);
             mulMatVal(minus_weight, cnn->C1->dmapWeight[j][i], -1*opts.eta);
             addMat_replace(cnn->C1->mapWeight[j][i],minus_weight);
 
-            freeMat(rot_input);
+            freeMat(rot_d);
             freeMat(minus_weight);
+//            matrix* rot_input = initMat(cnn->C1->inputHeight,cnn->C1->inputWidth,1);
+//            rotate180Mat(rot_input,inMat);
+//            covolution_once(cnn->C1->dmapWeight[j][i], rot_input,cnn->C1->d[i], cnn->C1->mapSize, cnn->C1->mapSize, 2);
+//            matrix* minus_weight = initMat(cnn->C1->mapSize,cnn->C1->mapSize,1);
+//            mulMatVal(minus_weight, cnn->C1->dmapWeight[j][i], -1*opts.eta);
+//            addMat_replace(cnn->C1->mapWeight[j][i],minus_weight);
+//
+//            freeMat(rot_input);
+//            freeMat(minus_weight);
         }
         cnn->C1->bias[i] = cnn->C1->bias[i] - opts.eta*sumMat(cnn->C1->d[i]);
     }
@@ -418,15 +427,24 @@ void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat){
     //C3
     for(i=0;i<cnn->C3->outChannels;i++){
         for(j=0;j<cnn->C3->inChannels;j++){
-            matrix* rot_input = initMat(cnn->S2->outputHeight,cnn->S2->outputWidth,1);
-            rotate180Mat(rot_input,cnn->S2->y[j]);
-            covolution_once(cnn->C3->dmapWeight[j][i], rot_input,cnn->C3->d[i], cnn->C3->mapSize, cnn->C3->mapSize, 0);
+            matrix* rot_d = initMat(cnn->C3->outputHeight,cnn->C3->outputWidth,1);
+            rotate180Mat(rot_d,cnn->C3->d[i]);
+            covolution_once(cnn->C3->dmapWeight[j][i],cnn->S2->y[j],rot_d,cnn->C3->mapSize,cnn->C3->mapSize,0);
             matrix* minus_weight = initMat(cnn->C3->mapSize,cnn->C3->mapSize,1);
             mulMatVal(minus_weight, cnn->C3->dmapWeight[j][i], -1*opts.eta);
             addMat_replace(cnn->C3->mapWeight[j][i],minus_weight);
 
-            freeMat(rot_input);
+            freeMat(rot_d);
             freeMat(minus_weight);
+//            matrix* rot_input = initMat(cnn->S2->outputHeight,cnn->S2->outputWidth,1);
+//            rotate180Mat(rot_input,cnn->S2->y[j]);
+//            covolution_once(cnn->C3->dmapWeight[j][i], rot_input,cnn->C3->d[i], cnn->C3->mapSize, cnn->C3->mapSize, 0);
+//            matrix* minus_weight = initMat(cnn->C3->mapSize,cnn->C3->mapSize,1);
+//            mulMatVal(minus_weight, cnn->C3->dmapWeight[j][i], -1*opts.eta);
+//            addMat_replace(cnn->C3->mapWeight[j][i],minus_weight);
+//
+//            freeMat(rot_input);
+//            freeMat(minus_weight);
         }
         cnn->C3->bias[i] = cnn->C3->bias[i] - opts.eta*sumMat(cnn->C3->d[i]);
     }
