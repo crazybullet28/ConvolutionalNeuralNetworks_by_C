@@ -4,12 +4,14 @@
 
 //#include <mapi.h>
 //#include <mem.h>
+#include <float.h>
 #include "cnn.h"
 
 
 float activate(float num){
 //    ReLu
     return (num>0)?num:0;
+//    return 2.0f/(1+exp(-num))-1;
 };
 
 //float activate_sigmoid(float num){
@@ -17,15 +19,20 @@ float activate(float num){
 //}
 
 float acti_derivation(float y){
+//    return (1+activate(y))*(1-activate(y))/2;
     return (y>0)?1:0;
 }
 
-
 void softMax(float* outArr, const float* inArr, int outNum){
-    float sum=0, tmp;
+    float tmp;
+    double sum=0;
     int i;
     for (i=0; i<outNum; i++){
-        tmp = exp(inArr[i]);
+        if (inArr[i] > 80){
+            tmp = FLT_MAX;
+        } else{
+            tmp = exp(inArr[i]);
+        }
         outArr[i] = tmp;
         sum += tmp;
     }
@@ -47,6 +54,7 @@ CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChann
 
     covLayer->mapWeight = (matrix***) malloc(inChannels* sizeof(matrix**));
     covLayer->dmapWeight = (matrix***) malloc(inChannels*sizeof(matrix**));
+    covLayer->dmapWeight_save = (matrix***) malloc(inChannels*sizeof(matrix**));
 
     int i, j, k, l;
 
@@ -55,9 +63,11 @@ CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChann
     for (i=0; i<inChannels; i++){
         covLayer->mapWeight[i] = (matrix**) malloc(outChannels* sizeof(matrix*));
         covLayer->dmapWeight[i] = (matrix**) malloc(outChannels* sizeof(matrix*));
+        covLayer->dmapWeight_save[i] = (matrix**) malloc(outChannels* sizeof(matrix*));
         for (j=0; j<outChannels; j++){
             covLayer->mapWeight[i][j] = initMat(mapSize, mapSize, 0);
             covLayer->dmapWeight[i][j] = initMat(mapSize, mapSize, 0);
+            covLayer->dmapWeight_save[i][j] = initMat(mapSize, mapSize, 0);
             for (k=0; k<mapSize; k++){
                 for (l=0; l<mapSize; l++){
 //                    covLayer->mapData[i][j][k][l] = (rand()/((float)RAND_MAX+1)-0.5)*2 * sqrt(6.0/(mapSize*mapSize*inChannels+outChannels));             // xavier initialize
@@ -68,8 +78,10 @@ CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChann
     }
 
     covLayer->bias = (float*) malloc(outChannels*sizeof(float));
+    covLayer->dBias_save = (float*) malloc(outChannels*sizeof(float));
     for (i=0; i<outChannels; i++){
         covLayer->bias[i] = 0;
+        covLayer->dBias_save[i] = 0;
     }
 
     int outW=inputWidth-mapSize+1+2*paddingForward;
@@ -122,13 +134,15 @@ OutLayer* initOutLayer(int inputNum,int outputNum){
     outLayer->outputNum = outputNum;
 
     outLayer->d = (float*) malloc(outputNum*sizeof(float));
+    outLayer->dBias_save = (float*) malloc(outputNum*sizeof(float));
     outLayer->v = (float*) malloc(outputNum*sizeof(float));
-    outLayer->y = (float*) malloc(outputNum*sizeof(float));
+//    outLayer->y = (float*) malloc(outputNum*sizeof(float));
     outLayer->p = (float*) malloc(outputNum*sizeof(float));
 
     int i,j;
     outLayer->bias = (float*) malloc(outputNum*sizeof(float));
     outLayer->weight = initMat(inputNum, outputNum, 0);
+    outLayer->dweight_save = initMat(inputNum, outputNum, 0);
 //    outLayer->dweight = initMat(inputNum, outputNum, 0);
 //    srand(100);
     for (i=0; i<inputNum; i++){
@@ -147,7 +161,7 @@ OutLayer* initOutLayer(int inputNum,int outputNum){
 };
 
 void cnn_setup(CNN* cnn, int inputHeight, int inputWidth, int outNum){
-    printf("[test] start cnn_setup\n");
+//    printf("[test] start cnn_setup\n");
     int inH = inputHeight;
     int inW = inputWidth;
     cnn->C1 = initCovLayer(inH, inW, 5, 1, 6, 2);       // 28*28 -> 32*32 -> 28*28
@@ -165,9 +179,8 @@ void cnn_setup(CNN* cnn, int inputHeight, int inputWidth, int outNum){
     cnn->Out = initOutLayer(inH*inW * 12, outNum);        // 300 -> 10
 
     cnn->e=(float *)malloc(cnn->Out->outputNum*sizeof(float));
-    printf("[test] end trainModel\n");
+//    printf("[test] end cnn_setup\n");
 };
-
 
 void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, int padding){
     int mapSize = map->row;
@@ -180,7 +193,7 @@ void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, 
     }
 
     if (padding==0){
-        matrix* tmp = initMat(mapSize, mapSize, 0);
+//        matrix* tmp = initMat(mapSize, mapSize, 1);
         for (i=0; i<outH; i++){
             for (j=0; j<outW; j++){
 //                subMat(tmp, inMat, i, mapSize, j, mapSize);
@@ -193,7 +206,7 @@ void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, 
                 }
             }
         }
-        freeMat(tmp);
+//        freeMat(tmp);
         return;
     }else{
         matrix* newInputMat = initMat(inMat->row+2*padding, inMat->column+2*padding, 1);
@@ -203,7 +216,16 @@ void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, 
             }
         }
 
-        matrix* tmp = initMat(mapSize, mapSize, 0);
+//        int k, l;
+//        for (k=0; k<newInputMat->row; k++){
+//            for (l=0; l<newInputMat->column; l++){
+//                printf("%.4f ", *getMatVal(newInputMat, k, l));
+//            }
+//            printf("\n");
+//        }
+//        printf("\n");
+
+//        matrix* tmp = initMat(mapSize, mapSize, 1);
         for (i=0; i<outH; i++){
             for (j=0; j<outW; j++){
 //                subMat(tmp, newInputMat, i, mapSize, j, mapSize);
@@ -211,12 +233,13 @@ void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, 
 //                *getMatVal(v, i, j)=val;
                 for (r=0; r<map->row; r++){
                     for (c=0; c<map->column; c++){
+//                        printf("%d, %d, %d, %d, %f\n",i, j, r, c, *getMatVal(newInputMat, i+r, j+c)* *getMatVal(map, r, c)) ;
                         *getMatVal(v, i, j)+=*getMatVal(newInputMat, i+r, j+c)* *getMatVal(map, r, c);
                     }
                 }
             }
         }
-        freeMat(tmp);
+//        freeMat(tmp);
         freeMat(newInputMat);
         return;
     }
@@ -297,10 +320,10 @@ void nnForward(OutLayer* O, float* inArr){
     for (i=0; i<O->outputNum; i++){
         vMat->val[i] += O->bias[i];
         O->v[i] = vMat->val[i];
-        O->y[i] = activate(vMat->val[i]);
+//        O->y[i] = activate(vMat->val[i]);
 //        O->y[i] = vMat.val[i];
     }
-    softMax(O->p, O->y, O->outputNum);
+    softMax(O->p, O->v, O->outputNum);
     freeMat(inMat);
     freeMat(vMat);
 };
@@ -310,7 +333,7 @@ float computeLoss(float* outArr, int labely){
 };
 
 void cnnfw(CNN* cnn, matrix* inMat){       // only one matrix a time.           outArr has already been malloc
-    printf("[test] start cnnfw\n");
+//    printf("[test] start cnnfw\n");
     matrix** input = (matrix**)malloc(sizeof(matrix*));
     input[0] = copyMat(inMat);
     convolution(cnn->C1, input);
@@ -331,7 +354,7 @@ void cnnfw(CNN* cnn, matrix* inMat){       // only one matrix a time.           
 
     freeMat(input[0]);
     free(input);
-    printf("[test] end cnnfw\n");
+//    printf("[test] end cnnfw\n");
 }
 
 matrix* UpSample(matrix* mat,int multiple_c,int multiple_r,int mapsize){
@@ -350,10 +373,10 @@ matrix* UpSample(matrix* mat,int multiple_c,int multiple_r,int mapsize){
 }
 
 void cnnbp(CNN* cnn, float* outputData){
-    printf("[test] start cnnbw\n");
+//    printf("[test] start cnnbw\n");
     int i,j,c,r; // 将误差保存到网络中
     for(i=0;i<cnn->Out->outputNum;i++)
-        cnn->e[i]=cnn->Out->y[i]-outputData[i];
+        cnn->e[i]=cnn->Out->p[i]-outputData[i];
 
     // Output layer
     for(i=0;i<cnn->Out->outputNum;i++)
@@ -418,11 +441,80 @@ void cnnbp(CNN* cnn, float* outputData){
         free(C1e);
     }
 
-    printf("[test] end cnnbw\n");
+//    printf("[test] end cnnbw\n");
 }
 
+//void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat){
+//    int i,j,r,c;
+//
+//    //C1
+//    for(i=0;i<cnn->C1->outChannels;i++){
+//        for(j=0;j<cnn->C1->inChannels;j++){
+//            matrix* rot_d = initMat(cnn->C1->outputHeight,cnn->C1->outputWidth,1);
+//            rotate180Mat(rot_d,cnn->C1->d[i]);
+//            covolution_once(cnn->C1->dmapWeight[j][i],inMat,rot_d,cnn->C1->mapSize,cnn->C1->mapSize,2);
+//            matrix* minus_weight = initMat(cnn->C1->mapSize,cnn->C1->mapSize,1);
+//            mulMatVal(minus_weight, cnn->C1->dmapWeight[j][i], -1*opts.eta);
+//            addMat_replace(cnn->C1->mapWeight[j][i],minus_weight);
+//
+//            freeMat(rot_d);
+//            freeMat(minus_weight);
+////            matrix* rot_input = initMat(cnn->C1->inputHeight,cnn->C1->inputWidth,1);
+////            rotate180Mat(rot_input,inMat);
+////            covolution_once(cnn->C1->dmapWeight[j][i], rot_input,cnn->C1->d[i], cnn->C1->mapSize, cnn->C1->mapSize, 2);
+////            matrix* minus_weight = initMat(cnn->C1->mapSize,cnn->C1->mapSize,1);
+////            mulMatVal(minus_weight, cnn->C1->dmapWeight[j][i], -1*opts.eta);
+////            addMat_replace(cnn->C1->mapWeight[j][i],minus_weight);
+////
+////            freeMat(rot_input);
+////            freeMat(minus_weight);
+//        }
+//        cnn->C1->bias[i] = cnn->C1->bias[i] - opts.eta*sumMat(cnn->C1->d[i]);
+//    }
+//
+//    //C3
+//    for(i=0;i<cnn->C3->outChannels;i++){
+//        for(j=0;j<cnn->C3->inChannels;j++){
+//            matrix* rot_d = initMat(cnn->C3->outputHeight,cnn->C3->outputWidth,1);
+//            rotate180Mat(rot_d,cnn->C3->d[i]);
+//            covolution_once(cnn->C3->dmapWeight[j][i],cnn->S2->y[j],rot_d,cnn->C3->mapSize,cnn->C3->mapSize,0);
+//            matrix* minus_weight = initMat(cnn->C3->mapSize,cnn->C3->mapSize,1);
+//            mulMatVal(minus_weight, cnn->C3->dmapWeight[j][i], -1*opts.eta);
+//            addMat_replace(cnn->C3->mapWeight[j][i],minus_weight);
+//
+//            freeMat(rot_d);
+//            freeMat(minus_weight);
+////            matrix* rot_input = initMat(cnn->S2->outputHeight,cnn->S2->outputWidth,1);
+////            rotate180Mat(rot_input,cnn->S2->y[j]);
+////            covolution_once(cnn->C3->dmapWeight[j][i], rot_input,cnn->C3->d[i], cnn->C3->mapSize, cnn->C3->mapSize, 0);
+////            matrix* minus_weight = initMat(cnn->C3->mapSize,cnn->C3->mapSize,1);
+////            mulMatVal(minus_weight, cnn->C3->dmapWeight[j][i], -1*opts.eta);
+////            addMat_replace(cnn->C3->mapWeight[j][i],minus_weight);
+////
+////            freeMat(rot_input);
+////            freeMat(minus_weight);
+//        }
+//        cnn->C3->bias[i] = cnn->C3->bias[i] - opts.eta*sumMat(cnn->C3->d[i]);
+//    }
+//
+//    //Output layer
+//    float* Out_input=(float*)malloc((cnn->Out->inputNum)*sizeof(float));
+//    int row = cnn->S4->inputHeight/cnn->S4->mapSize;
+//    int col = cnn->S4->inputWidth/cnn->S4->mapSize;
+//    for(i=0;i<cnn->S4->outChannels;i++)
+//        for(r=0;r<row;r++)
+//            for(c=0;c<col;c++)
+//                Out_input[i*row*col+r*col+c] = *getMatVal(cnn->S4->y[i],r,c);
+//    for(j=0;j<cnn->Out->outputNum;j++){
+//        for(i=0;i<cnn->Out->inputNum;i++)
+//            *getMatVal(cnn->Out->weight,i,j) = *getMatVal(cnn->Out->weight,i,j) - opts.eta*cnn->Out->d[j]*Out_input[i];
+//        cnn->Out->bias[j] = cnn->Out->bias[j] - opts.eta*cnn->Out->d[j];
+//    }
+//    free(Out_input);
+//}
 
-void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat){
+void gradient_save(CNN* cnn, CNNOpts opts, matrix* inMat, int batch){
+//    printf("[test] start gradient_save\n");
     int i,j,r,c;
 
     //C1
@@ -430,24 +522,15 @@ void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat){
         for(j=0;j<cnn->C1->inChannels;j++){
             matrix* rot_d = initMat(cnn->C1->outputHeight,cnn->C1->outputWidth,1);
             rotate180Mat(rot_d,cnn->C1->d[i]);
-            covolution_once(cnn->C1->dmapWeight[j][i],inMat,rot_d,cnn->C1->mapSize,cnn->C1->mapSize,0);
+            covolution_once(cnn->C1->dmapWeight[j][i],inMat,rot_d,cnn->C1->mapSize,cnn->C1->mapSize,2);
             matrix* minus_weight = initMat(cnn->C1->mapSize,cnn->C1->mapSize,1);
-            mulMatVal(minus_weight, cnn->C1->dmapWeight[j][i], -1*opts.eta);
-            addMat_replace(cnn->C1->mapWeight[j][i],minus_weight);
+            mulMatVal(minus_weight, cnn->C1->dmapWeight[j][i], -1*opts.eta/batch);
+            addMat_replace(cnn->C1->dmapWeight_save[j][i],minus_weight);
 
             freeMat(rot_d);
             freeMat(minus_weight);
-//            matrix* rot_input = initMat(cnn->C1->inputHeight,cnn->C1->inputWidth,1);
-//            rotate180Mat(rot_input,inMat);
-//            covolution_once(cnn->C1->dmapWeight[j][i], rot_input,cnn->C1->d[i], cnn->C1->mapSize, cnn->C1->mapSize, 2);
-//            matrix* minus_weight = initMat(cnn->C1->mapSize,cnn->C1->mapSize,1);
-//            mulMatVal(minus_weight, cnn->C1->dmapWeight[j][i], -1*opts.eta);
-//            addMat_replace(cnn->C1->mapWeight[j][i],minus_weight);
-//
-//            freeMat(rot_input);
-//            freeMat(minus_weight);
         }
-        cnn->C1->bias[i] = cnn->C1->bias[i] - opts.eta*sumMat(cnn->C1->d[i]);
+        cnn->C1->dBias_save[i] += - opts.eta*sumMat(cnn->C1->d[i])/batch;
     }
 
     //C3
@@ -457,22 +540,13 @@ void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat){
             rotate180Mat(rot_d,cnn->C3->d[i]);
             covolution_once(cnn->C3->dmapWeight[j][i],cnn->S2->y[j],rot_d,cnn->C3->mapSize,cnn->C3->mapSize,0);
             matrix* minus_weight = initMat(cnn->C3->mapSize,cnn->C3->mapSize,1);
-            mulMatVal(minus_weight, cnn->C3->dmapWeight[j][i], -1*opts.eta);
-            addMat_replace(cnn->C3->mapWeight[j][i],minus_weight);
+            mulMatVal(minus_weight, cnn->C3->dmapWeight[j][i], -1*opts.eta/batch);
+            addMat_replace(cnn->C3->dmapWeight_save[j][i],minus_weight);
 
             freeMat(rot_d);
             freeMat(minus_weight);
-//            matrix* rot_input = initMat(cnn->S2->outputHeight,cnn->S2->outputWidth,1);
-//            rotate180Mat(rot_input,cnn->S2->y[j]);
-//            covolution_once(cnn->C3->dmapWeight[j][i], rot_input,cnn->C3->d[i], cnn->C3->mapSize, cnn->C3->mapSize, 0);
-//            matrix* minus_weight = initMat(cnn->C3->mapSize,cnn->C3->mapSize,1);
-//            mulMatVal(minus_weight, cnn->C3->dmapWeight[j][i], -1*opts.eta);
-//            addMat_replace(cnn->C3->mapWeight[j][i],minus_weight);
-//
-//            freeMat(rot_input);
-//            freeMat(minus_weight);
         }
-        cnn->C3->bias[i] = cnn->C3->bias[i] - opts.eta*sumMat(cnn->C3->d[i]);
+        cnn->C3->dBias_save[i] += - opts.eta*sumMat(cnn->C3->d[i])/batch;
     }
 
     //Output layer
@@ -485,11 +559,40 @@ void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat){
                 Out_input[i*row*col+r*col+c] = *getMatVal(cnn->S4->y[i],r,c);
     for(j=0;j<cnn->Out->outputNum;j++){
         for(i=0;i<cnn->Out->inputNum;i++)
-            *getMatVal(cnn->Out->weight,i,j) = *getMatVal(cnn->Out->weight,i,j) - opts.eta*cnn->Out->d[j]*Out_input[i];
-        cnn->Out->bias[j] = cnn->Out->bias[j] - opts.eta*cnn->Out->d[j];
+            *getMatVal(cnn->Out->dweight_save,i,j) += -opts.eta*cnn->Out->d[j]*Out_input[i]/batch;
+        cnn->Out->dBias_save[j] += -opts.eta*cnn->Out->d[j]/batch;
     }
     free(Out_input);
+//    printf("[test] end gradient_save\n");
 }
+
+void gradient_update_Batch(CNN* cnn){
+//    printf("[test] start gradient_update_Batch\n");
+    int i,j,r,c;
+
+    //C1
+    for(i=0;i<cnn->C1->outChannels;i++){
+        for(j=0;j<cnn->C1->inChannels;j++){
+            addMat_replace(cnn->C1->mapWeight[j][i], cnn->C1->dmapWeight_save[j][i]);
+        }
+        cnn->C1->bias[i] = cnn->C1->bias[i] + cnn->C1->dBias_save[i];
+    }
+
+    //C3
+    for(i=0;i<cnn->C3->outChannels;i++){
+        for(j=0;j<cnn->C3->inChannels;j++){
+            addMat_replace(cnn->C3->mapWeight[j][i], cnn->C3->dmapWeight_save[j][i]);
+        }
+        cnn->C3->bias[i] = cnn->C3->bias[i] + cnn->C3->dBias_save[i];
+    }
+
+    //Output layer
+    addMat_replace(cnn->Out->weight, cnn->Out->dweight_save);
+    for(j=0;j<cnn->Out->outputNum;j++){
+        cnn->Out->bias[j] = cnn->Out->bias[j] + cnn->Out->dBias_save[j];
+    }
+//    printf("[test] end gradient_update_Batch\n");
+};
 
 void cnnclear(CNN* cnn){
     // Clear local error and output
@@ -499,61 +602,65 @@ void cnnclear(CNN* cnn){
         clearMat(cnn->C1->d[j]);
         clearMat(cnn->C1->v[j]);
         clearMat(cnn->C1->y[j]);
-//        for(r=0;r<cnn->S2->inputHeight;r++){
-//            for(c=0;c<cnn->S2->inputWidth;c++){
-//                *getMatVal(cnn->C1->d[j],r,c)=(float)0.0;
-//                *getMatVal(cnn->C1->v[j],r,c)=(float)0.0;
-//                *getMatVal(cnn->C1->y[j],r,c)=(float)0.0;
-//            }
-//        }
     }
     // S2
     for(j=0;j<cnn->S2->outChannels;j++){
         clearMat(cnn->S2->d[j]);
         clearMat(cnn->S2->y[j]);
-//        for(r=0;r<cnn->C3->inputHeight;r++){
-//            for(c=0;c<cnn->C3->inputWidth;c++){
-//                *getMatVal(cnn->S2->d[j],r,c)=(float)0.0;
-//                *getMatVal(cnn->S2->y[j],r,c)=(float)0.0;
-//            }
-//        }
     }
     // C3
     for(j=0;j<cnn->C3->outChannels;j++){
         clearMat(cnn->C3->d[j]);
         clearMat(cnn->C3->v[j]);
         clearMat(cnn->C3->y[j]);
-//        for(r=0;r<cnn->S4->inputHeight;r++){
-//            for(c=0;c<cnn->S4->inputWidth;c++){
-//                *getMatVal(cnn->C3->d[j],r,c)=(float)0.0;
-//                *getMatVal(cnn->C3->v[j],r,c)=(float)0.0;
-//                *getMatVal(cnn->C3->y[j],r,c)=(float)0.0;
-//            }
-//        }
     }
     // S4
     for(j=0;j<cnn->S4->outChannels;j++){
         clearMat(cnn->S4->d[j]);
         clearMat(cnn->S4->y[j]);
-//        for(r=0;r<cnn->S4->inputHeight/cnn->S4->mapSize;r++){
-//            for(c=0;c<cnn->S4->inputWidth/cnn->S4->mapSize;c++){
-//                *getMatVal(cnn->S4->d[j],r,c)=(float)0.0;
-//                *getMatVal(cnn->S4->y[j],r,c)=(float)0.0;
-//            }
-//        }
     }
     // Output
     for(j=0;j<cnn->Out->outputNum;j++){
         cnn->Out->d[j]=(float)0.0;
         cnn->Out->v[j]=(float)0.0;
-        cnn->Out->y[j]=(float)0.0;
+    }
+}
+
+void cnnclear_Save(CNN* cnn){
+    int i, j, k;
+
+    //C1
+    for(i=0;i<cnn->C1->outChannels;i++) {
+        for (j = 0; j < cnn->C1->inChannels; j++) {
+            clearMat(cnn->C1->dmapWeight_save[j][i]);
+        }
+        cnn->C1->dBias_save[i] = 0;
+    }
+
+    //C3
+    for(i=0;i<cnn->C3->outChannels;i++) {
+        for (j = 0; j < cnn->C3->inChannels; j++) {
+            clearMat(cnn->C3->dmapWeight_save[j][i]);
+        }
+        cnn->C3->dBias_save[i] = 0;
+    }
+
+    //Out
+    clearMat(cnn->Out->dweight_save);
+    for(j=0;j<cnn->Out->outputNum;j++){
+        cnn->Out->dBias_save[j] = 0;
     }
 }
 
 void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, int trainNum){           // may be slow?
     printf("[test] start trainModel\n");
     cnn->L=(float *)malloc(opts.numepochs*sizeof(float));
+    int i;
+    for (i=0; i<opts.numepochs; i++){
+        cnn->L[i] = 0;
+    }
     int epoch;
+    int batch = opts.batch;
     for (epoch=0; epoch<opts.numepochs; epoch++){
         printf("Epoch %d \n", epoch);
         int n;
@@ -568,7 +675,11 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, i
 //            cnn->L[epoch] = computeLoss(cnn->Out->p, outputData->LabelPtr[n].Labely);
             cnnbp(cnn, outputData->LabelPtr[n].LabelData);
 //            printf("[test] inputData->ImgMatPtr[%d] - %d*%d\n", n, inputData->ImgMatPtr[n]->row, inputData->ImgMatPtr[n]->column);
-            gradient_update(cnn, opts, inputData->ImgMatPtr[n]);
+
+
+
+            gradient_save(cnn, opts, inputData->ImgMatPtr[n], batch);
+//            gradient_update(cnn, opts, inputData->ImgMatPtr[n]);
 
             sprintf(saveFilePath, "data/output/cnnOutput_%d_%d.txt", epoch, n);
             cnnSaveOutput(cnn, inputData->ImgMatPtr[n], saveFilePath);
@@ -576,7 +687,11 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, i
             sprintf(saveFilePath, "data/d/cnnD_%d_%d.txt", epoch, n);
             cnnSaveD(cnn, saveFilePath);
 
+            sprintf(saveFilePath, "data/dWeight/cnnDWeight_%d_%d.txt", epoch, n);
+            cnnSaveDWeight(cnn, saveFilePath);
+
             cnnclear(cnn);
+
             float l=0.0;
 //            int i;
 //            for(i=0;i<cnn->Out->outputNum;i++)
@@ -586,16 +701,24 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, i
 //            else
 //                cnn->L[n]=cnn->L[n-1]*0.99+0.01*l/(float)2.0;
             l = computeLoss(cnn->Out->p, outputData->LabelPtr[n].Labely);
-            printf("\"Epoch %d,        n = %d,     loss = %f\n", epoch, n, l);
+            cnn->L[epoch] += l/trainNum;
+
+            if ((n+1)%batch == 0){
+                gradient_update_Batch(cnn);
+                cnnclear_Save(cnn);
+            }
         }
+        printf("Epoch %d,    train loss = %f\n", epoch,cnn->L[epoch]);
+        opts.eta *= 0.9;
     }
     printf("[test] end trainModel\n");
 };
 
-
 float testModel(CNN* cnn, ImgArr inputData, LabelArr outputData, int testNum){
     int sumOfCorrect = 0;
+    float lossSum = 0;
     int n;
+    printf("[test]   test   ");
     for (n=0; n<testNum; n++){
         cnnfw(cnn, inputData->ImgMatPtr[n]);
         int i, maxIndex=0;
@@ -604,7 +727,9 @@ float testModel(CNN* cnn, ImgArr inputData, LabelArr outputData, int testNum){
             maxIndex = (cnn->Out->p[i]>0)?i:maxIndex;
         }
         if (maxIndex == outputData->LabelPtr[n].Labely) sumOfCorrect++;
+        lossSum += -log(cnn->Out->p[outputData->LabelPtr[n].Labely]);
     }
+    printf("loss = %f,   acc = %f\n", lossSum/(float) testNum, sumOfCorrect/(float) testNum);
     return sumOfCorrect/(float) testNum;
 };
 
@@ -681,7 +806,7 @@ void cnnSaveOutput(CNN *cnn, matrix *inMat, const char *filename){
     // Out
     fprintf(fp, "Out output y:\n");
     for(i=0;i<cnn->Out->outputNum;i++){
-        fprintf(fp, "%.4f  ", cnn->Out->y[i]);
+        fprintf(fp, "%.4f  ", cnn->Out->v[i]);
     }
     fprintf(fp, "\n--------------------\n");
 
@@ -862,6 +987,60 @@ void cnnSaveD(CNN *cnn, const char *filename){
         fprintf(fp, "\n");
     fprintf(fp, "\n--------------------\n");
 
+
+    fclose(fp);
+}
+
+void cnnSaveDWeight(CNN *cnn, const char *filename){
+    FILE  *fp=NULL;
+    fp=fopen(filename,"wb");
+    if(fp==NULL)
+        printf("write file %s failed\n", filename);
+
+    int i,j,r,c;
+
+    // C1
+    fprintf(fp, "C1 dmap:\n");
+    for(i=0;i<cnn->C1->inChannels;i++){
+        for(j=0;j<cnn->C1->outChannels;j++){
+            for(r=0;r<cnn->C1->mapSize;r++){
+                for (c=0;c<cnn->C1->mapSize;c++){
+                    float val = *getMatVal(cnn->C1->dmapWeight[i][j], r, c);
+                    if (val>=0){
+                        fprintf(fp, " %.4f  ", val);
+                    }else{
+                        fprintf(fp, "%.4f  ", val);
+                    }
+                }
+                fprintf(fp, "\n");
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n");
+    }
+
+    fprintf(fp, "\n--------------------\n");
+
+    // C3
+    fprintf(fp, "C3 dmap:\n");
+    for(i=0;i<cnn->C3->inChannels;i++){
+        for(j=0;j<cnn->C3->outChannels;j++){
+            for(r=0;r<cnn->C3->mapSize;r++){
+                for (c=0;c<cnn->C3->mapSize;c++){
+                    float val = *getMatVal(cnn->C3->dmapWeight[i][j], r, c);
+                    if (val>=0){
+                        fprintf(fp, " %.4f  ", val);
+                    }else{
+                        fprintf(fp, "%.4f  ", val);
+                    }
+                }
+                fprintf(fp, "\n");
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n");
+    }
+    fprintf(fp, "\n--------------------\n");
 
     fclose(fp);
 }

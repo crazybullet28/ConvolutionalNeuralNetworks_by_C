@@ -20,12 +20,12 @@ matrix* initMat(int r, int c, int type){        // if type = 1, then initial all
     res->row = r;
     res->column = c;
     res->val = (float*) malloc(r*c*sizeof(float));
-    if (type==1){
-        int i;
-        for (i=0; i<r*c; i++){
-            res->val[i] = 0;
-        }
+//    if (type==1){
+    int i;
+    for (i=0; i<r*c; i++){
+        res->val[i] = 0.0f;
     }
+//    }
     return res;
 }
 
