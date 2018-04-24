@@ -13,12 +13,16 @@ float activate(float num){
     return (num>0)?num:0;
 };
 
-//float activate_sigmoid(float num){
-//    return exp(num)/(exp(num)+1.0);
-//}
+float activate_sigmoid(float num){
+    return 1.0f/((float)(1.0f+exp(-num)));
+}
 
 float acti_derivation(float y){
     return (y>0)?1:0;
+}
+
+float sigmoid_derivation(float y){
+    return y*(1-y);
 }
 
 
@@ -241,7 +245,7 @@ void convolution(CovLayer* C, matrix** inMat){
         for (k=0; k<C->outputHeight; k++){
             for (l=0; l<C->outputWidth; l++){
                 *getMatVal(C->v[i], k, l) += C->bias[i];
-                *getMatVal(C->y[i], k, l) = activate(*getMatVal(C->v[i], k, l));
+                *getMatVal(C->y[i], k, l) = activate_sigmoid(*getMatVal(C->v[i], k, l));
             }
         }
     }
@@ -291,13 +295,13 @@ void pooling(PoolLayer* S, matrix** inMat){
 
 void nnForward(OutLayer* O, float* inArr){
     matrix *inMat, *vMat;
-    inMat = initMat(1, O->inputNum, 0);
+    inMat = initMat(1, O->inputNum, 1);
     int i;
     for (i=0; i<O->inputNum; i++){
         inMat->val[i] = inArr[i];
     }
 
-    vMat = initMat(1, O->outputNum, 0);
+    vMat = initMat(1, O->outputNum, 1);
 
     mulMat(vMat, inMat, O->weight);
     for (i=0; i<O->outputNum; i++){
@@ -306,7 +310,10 @@ void nnForward(OutLayer* O, float* inArr){
 //        O->y[i] = activate(vMat->val[i]);
 //        O->y[i] = vMat.val[i];
     }
-    softMax(O->p, O->v, O->outputNum);
+//    softMax(O->p, O->v, O->outputNum);
+    for (i=0; i<O->outputNum; i++){
+        O->p[i] = activate_sigmoid(O->v[i]);
+    }
     freeMat(inMat);
     freeMat(vMat);
 };
@@ -363,7 +370,7 @@ void cnnbp(CNN* cnn, float* outputData){
 
     // Output layer
     for(i=0;i<cnn->Out->outputNum;i++)
-        cnn->Out->d[i]=cnn->e[i];
+        cnn->Out->d[i]=cnn->e[i] * sigmoid_derivation(cnn->Out->p[i]);
 
     // S4层，传递到S4层的误差
     // 这里没有激活函数
@@ -384,7 +391,7 @@ void cnnbp(CNN* cnn, float* outputData){
         matrix* C3e = UpSample(cnn->S4->d[i],cnn->S4->inputWidth/cnn->S4->mapSize,cnn->S4->inputHeight/cnn->S4->mapSize,cnn->S4->mapSize);
         for(r=0;r<cnn->S4->inputHeight;r++)
             for(c=0;c<cnn->S4->inputWidth;c++)
-                *getMatVal(cnn->C3->d[i],r,c)=*getMatVal(C3e,r,c)*acti_derivation(*getMatVal(cnn->C3->v[i],r,c));
+                *getMatVal(cnn->C3->d[i],r,c)=*getMatVal(C3e,r,c)*sigmoid_derivation(*getMatVal(cnn->C3->y[i],r,c))/(cnn->S4->mapSize * cnn->S4->mapSize);
         freeMat(C3e);
     }
 
@@ -406,7 +413,8 @@ void cnnbp(CNN* cnn, float* outputData){
             addMat(sum,cnn->S2->d[i],sum);
             freeMat(rot_weight);
         }
-        cnn->S2->d[i] = sum;
+        cnn->S2->d[i] = copyMat(sum);
+//        cnn->S2->d[i] = sum;
         /*
         for(r=0;r<cnn->C3->inputHeight;r++)
             for(c=0;c<cnn->C3->inputWidth;c++)
@@ -420,7 +428,7 @@ void cnnbp(CNN* cnn, float* outputData){
         matrix* C1e = UpSample(cnn->S2->d[i],cnn->S2->inputWidth/cnn->S2->mapSize,cnn->S2->inputHeight/cnn->S2->mapSize,cnn->S2->mapSize);
         for(r=0;r<cnn->S2->inputHeight;r++)
             for(c=0;c<cnn->S2->inputWidth;c++)
-                *getMatVal(cnn->C1->d[i],r,c)=*getMatVal(C1e,r,c)*acti_derivation(*getMatVal(cnn->C1->v[i],r,c));
+                *getMatVal(cnn->C1->d[i],r,c)=*getMatVal(C1e,r,c)*sigmoid_derivation(*getMatVal(cnn->C1->y[i],r,c));
         free(C1e);
     }
 
@@ -443,15 +451,6 @@ void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat){
 
             freeMat(rot_d);
             freeMat(minus_weight);
-//            matrix* rot_input = initMat(cnn->C1->inputHeight,cnn->C1->inputWidth,1);
-//            rotate180Mat(rot_input,inMat);
-//            covolution_once(cnn->C1->dmapWeight[j][i], rot_input,cnn->C1->d[i], cnn->C1->mapSize, cnn->C1->mapSize, 2);
-//            matrix* minus_weight = initMat(cnn->C1->mapSize,cnn->C1->mapSize,1);
-//            mulMatVal(minus_weight, cnn->C1->dmapWeight[j][i], -1*opts.eta);
-//            addMat_replace(cnn->C1->mapWeight[j][i],minus_weight);
-//
-//            freeMat(rot_input);
-//            freeMat(minus_weight);
         }
         cnn->C1->bias[i] = cnn->C1->bias[i] - opts.eta*sumMat(cnn->C1->d[i]);
     }
@@ -468,15 +467,6 @@ void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat){
 
             freeMat(rot_d);
             freeMat(minus_weight);
-//            matrix* rot_input = initMat(cnn->S2->outputHeight,cnn->S2->outputWidth,1);
-//            rotate180Mat(rot_input,cnn->S2->y[j]);
-//            covolution_once(cnn->C3->dmapWeight[j][i], rot_input,cnn->C3->d[i], cnn->C3->mapSize, cnn->C3->mapSize, 0);
-//            matrix* minus_weight = initMat(cnn->C3->mapSize,cnn->C3->mapSize,1);
-//            mulMatVal(minus_weight, cnn->C3->dmapWeight[j][i], -1*opts.eta);
-//            addMat_replace(cnn->C3->mapWeight[j][i],minus_weight);
-//
-//            freeMat(rot_input);
-//            freeMat(minus_weight);
         }
         cnn->C3->bias[i] = cnn->C3->bias[i] - opts.eta*sumMat(cnn->C3->d[i]);
     }
@@ -505,48 +495,22 @@ void cnnclear(CNN* cnn){
         clearMat(cnn->C1->d[j]);
         clearMat(cnn->C1->v[j]);
         clearMat(cnn->C1->y[j]);
-//        for(r=0;r<cnn->S2->inputHeight;r++){
-//            for(c=0;c<cnn->S2->inputWidth;c++){
-//                *getMatVal(cnn->C1->d[j],r,c)=(float)0.0;
-//                *getMatVal(cnn->C1->v[j],r,c)=(float)0.0;
-//                *getMatVal(cnn->C1->y[j],r,c)=(float)0.0;
-//            }
-//        }
     }
     // S2
     for(j=0;j<cnn->S2->outChannels;j++){
         clearMat(cnn->S2->d[j]);
         clearMat(cnn->S2->y[j]);
-//        for(r=0;r<cnn->C3->inputHeight;r++){
-//            for(c=0;c<cnn->C3->inputWidth;c++){
-//                *getMatVal(cnn->S2->d[j],r,c)=(float)0.0;
-//                *getMatVal(cnn->S2->y[j],r,c)=(float)0.0;
-//            }
-//        }
     }
     // C3
     for(j=0;j<cnn->C3->outChannels;j++){
         clearMat(cnn->C3->d[j]);
         clearMat(cnn->C3->v[j]);
         clearMat(cnn->C3->y[j]);
-//        for(r=0;r<cnn->S4->inputHeight;r++){
-//            for(c=0;c<cnn->S4->inputWidth;c++){
-//                *getMatVal(cnn->C3->d[j],r,c)=(float)0.0;
-//                *getMatVal(cnn->C3->v[j],r,c)=(float)0.0;
-//                *getMatVal(cnn->C3->y[j],r,c)=(float)0.0;
-//            }
-//        }
     }
     // S4
     for(j=0;j<cnn->S4->outChannels;j++){
         clearMat(cnn->S4->d[j]);
         clearMat(cnn->S4->y[j]);
-//        for(r=0;r<cnn->S4->inputHeight/cnn->S4->mapSize;r++){
-//            for(c=0;c<cnn->S4->inputWidth/cnn->S4->mapSize;c++){
-//                *getMatVal(cnn->S4->d[j],r,c)=(float)0.0;
-//                *getMatVal(cnn->S4->y[j],r,c)=(float)0.0;
-//            }
-//        }
     }
     // Output
     for(j=0;j<cnn->Out->outputNum;j++){
@@ -565,10 +529,10 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, i
         int n;
         for (n=0; n<trainNum; n++){
 
-            if (n==999){
-                int a = 0;
-                a++;
-            }
+//            if (n==999){
+//                int a = 0;
+//                a++;
+//            }
 
             char saveFilePath[30];
             sprintf(saveFilePath, "data/weight/cnnWeight_%d_%d.txt", epoch, n);
