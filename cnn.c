@@ -406,7 +406,7 @@ void cnnbp(CNN* cnn, float* outputData){
             addMat(sum,cnn->S2->d[i],sum);
             freeMat(rot_weight);
         }
-        cnn->S2->d[i] = sum;
+        cnn->S2->d[i] = copyMat(sum);
         /*
         for(r=0;r<cnn->C3->inputHeight;r++)
             for(c=0;c<cnn->C3->inputWidth;c++)
