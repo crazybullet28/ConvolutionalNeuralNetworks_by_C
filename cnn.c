@@ -161,19 +161,19 @@ void cnn_setup(CNN* cnn, int inputHeight, int inputWidth, int outNum){
 //    printf("[test] start cnn_setup\n");
     int inH = inputHeight;
     int inW = inputWidth;
-    cnn->C1 = initCovLayer(inH, inW, 5, 1, 6, 2);       // 28*28 -> 32*32 -> 28*28
+    cnn->C1 = initCovLayer(inH, inW, 5, 1, 6, 0);       // 28*28 -> 32*32 -> 28*28          // 24*24
     inH = cnn->C1->outputHeight;
     inW = cnn->C1->outputWidth;
-    cnn->S2 = initPoolLayer(inH, inW, 2, 6, 6, 1);      // 28*28 -> 14*14
+    cnn->S2 = initPoolLayer(inH, inW, 2, 6, 6, 1);      // 28*28 -> 14*14                   // 12*12
     inH = cnn->S2->outputHeight;
     inW = cnn->S2->outputWidth;
-    cnn->C3 = initCovLayer(inH, inW, 5, 6, 12, 0);      // 14*14 -> 10*10
+    cnn->C3 = initCovLayer(inH, inW, 5, 6, 12, 0);      // 14*14 -> 10*10                   // 8*8
     inH = cnn->C3->outputHeight;
     inW = cnn->C3->outputWidth;
-    cnn->S4 = initPoolLayer(inH, inW, 2, 12, 12, 1);    // 10*10 -> 5*5
+    cnn->S4 = initPoolLayer(inH, inW, 2, 12, 12, 1);    // 10*10 -> 5*5                     // 4*4
     inH = cnn->S4->outputHeight;
     inW = cnn->S4->outputWidth;
-    cnn->Out = initOutLayer(inH*inW * 12, outNum);        // 300 -> 10
+    cnn->Out = initOutLayer(inH*inW * 12, outNum);        // 300 -> 10                      // 192 -> 10
 
     cnn->e=(float *)malloc(cnn->Out->outputNum*sizeof(float));
 //    printf("[test] end trainModel\n");
@@ -445,7 +445,7 @@ void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat){
         for(j=0;j<cnn->C1->inChannels;j++){
             matrix* rot_d = initMat(cnn->C1->outputHeight,cnn->C1->outputWidth,1);
             rotate180Mat(rot_d,cnn->C1->d[i]);
-            covolution_once(cnn->C1->dmapWeight[j][i],inMat,rot_d,cnn->C1->mapSize,cnn->C1->mapSize,2);
+            covolution_once(cnn->C1->dmapWeight[j][i],inMat,rot_d,cnn->C1->mapSize,cnn->C1->mapSize,cnn->C1->paddingForward);
             matrix* minus_weight = initMat(cnn->C1->mapSize,cnn->C1->mapSize,1);
             mulMatVal(minus_weight, cnn->C1->dmapWeight[j][i], -1*opts.eta);
             addMat_replace(cnn->C1->mapWeight[j][i],minus_weight);
@@ -461,7 +461,7 @@ void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat){
         for(j=0;j<cnn->C3->inChannels;j++){
             matrix* rot_d = initMat(cnn->C3->outputHeight,cnn->C3->outputWidth,1);
             rotate180Mat(rot_d,cnn->C3->d[i]);
-            covolution_once(cnn->C3->dmapWeight[j][i],cnn->S2->y[j],rot_d,cnn->C3->mapSize,cnn->C3->mapSize,0);
+            covolution_once(cnn->C3->dmapWeight[j][i],cnn->S2->y[j],rot_d,cnn->C3->mapSize,cnn->C3->mapSize,cnn->C3->paddingForward);
             matrix* minus_weight = initMat(cnn->C3->mapSize,cnn->C3->mapSize,1);
             mulMatVal(minus_weight, cnn->C3->dmapWeight[j][i], -1*opts.eta);
             addMat_replace(cnn->C3->mapWeight[j][i],minus_weight);
