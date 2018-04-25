@@ -443,14 +443,14 @@ void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat){
     //C1
     for(i=0;i<cnn->C1->outChannels;i++){
         for(j=0;j<cnn->C1->inChannels;j++){
-            matrix* rot_d = initMat(cnn->C1->outputHeight,cnn->C1->outputWidth,1);
-            rotate180Mat(rot_d,cnn->C1->d[i]);
-            covolution_once(cnn->C1->dmapWeight[j][i],inMat,rot_d,cnn->C1->mapSize,cnn->C1->mapSize,cnn->C1->paddingForward);
+            matrix* rot_input = initMat(inMat->row,inMat->column,1);
+            rotate180Mat(rot_input,inMat);
+            covolution_once(cnn->C1->dmapWeight[j][i],rot_input,cnn->C1->d[i],cnn->C1->mapSize,cnn->C1->mapSize,cnn->C1->paddingForward);
             matrix* minus_weight = initMat(cnn->C1->mapSize,cnn->C1->mapSize,1);
             mulMatVal(minus_weight, cnn->C1->dmapWeight[j][i], -1*opts.eta);
             addMat_replace(cnn->C1->mapWeight[j][i],minus_weight);
 
-            freeMat(rot_d);
+            freeMat(rot_input);
             freeMat(minus_weight);
         }
         cnn->C1->bias[i] = cnn->C1->bias[i] - opts.eta*sumMat(cnn->C1->d[i]);
@@ -459,14 +459,14 @@ void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat){
     //C3
     for(i=0;i<cnn->C3->outChannels;i++){
         for(j=0;j<cnn->C3->inChannels;j++){
-            matrix* rot_d = initMat(cnn->C3->outputHeight,cnn->C3->outputWidth,1);
-            rotate180Mat(rot_d,cnn->C3->d[i]);
-            covolution_once(cnn->C3->dmapWeight[j][i],cnn->S2->y[j],rot_d,cnn->C3->mapSize,cnn->C3->mapSize,cnn->C3->paddingForward);
+            matrix* rot_input = initMat(cnn->S2->outputHeight,cnn->S2->outputWidth,1);
+            rotate180Mat(rot_input,cnn->S2->y[j]);
+            covolution_once(cnn->C3->dmapWeight[j][i],rot_input,cnn->C3->d[i],cnn->C3->mapSize,cnn->C3->mapSize,cnn->C3->paddingForward);
             matrix* minus_weight = initMat(cnn->C3->mapSize,cnn->C3->mapSize,1);
             mulMatVal(minus_weight, cnn->C3->dmapWeight[j][i], -1*opts.eta);
             addMat_replace(cnn->C3->mapWeight[j][i],minus_weight);
 
-            freeMat(rot_d);
+            freeMat(rot_input);
             freeMat(minus_weight);
         }
         cnn->C3->bias[i] = cnn->C3->bias[i] - opts.eta*sumMat(cnn->C3->d[i]);
