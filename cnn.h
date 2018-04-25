@@ -70,7 +70,7 @@ typedef struct nn_layer{
 
     // 下面三者的大小同输出的维度相同
     float* v; // 进入激活函数的输入值
-    float* y; // 激活函数后神经元的输出
+//    float* y; // 激活函数后神经元的输出
     float* p; // softMax(y)
     float* d; // 网络的局部梯度,δ值                 outputNum
 
@@ -141,5 +141,7 @@ void cnnSaveOutput(CNN *cnn, matrix *inMat, const char *filename);
 void cnnSaveWeight(CNN *cnn, const char *filename);
 
 void cnnSaveD(CNN *cnn, const char *filename);
+
+void cnnSaveDWeight(CNN *cnn, const char *filename);
 
 #endif //PARALLEL_PROJ_CNN_H

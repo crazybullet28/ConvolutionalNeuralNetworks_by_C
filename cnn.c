@@ -4,6 +4,7 @@
 
 //#include <mapi.h>
 //#include <mem.h>
+#include <float.h>
 #include "cnn.h"
 
 
@@ -22,10 +23,15 @@ float acti_derivation(float y){
 
 
 void softMax(float* outArr, const float* inArr, int outNum){
-    float sum=0, tmp;
+    float tmp;
+    double sum=0;
     int i;
     for (i=0; i<outNum; i++){
-        tmp = exp(inArr[i]);
+        if (inArr[i] > 80){
+            tmp = FLT_MAX;
+        } else{
+            tmp = exp(inArr[i]);
+        }
         outArr[i] = tmp;
         sum += tmp;
     }
@@ -123,7 +129,7 @@ OutLayer* initOutLayer(int inputNum,int outputNum){
 
     outLayer->d = (float*) malloc(outputNum*sizeof(float));
     outLayer->v = (float*) malloc(outputNum*sizeof(float));
-    outLayer->y = (float*) malloc(outputNum*sizeof(float));
+//    outLayer->y = (float*) malloc(outputNum*sizeof(float));
     outLayer->p = (float*) malloc(outputNum*sizeof(float));
 
     int i,j;
@@ -180,7 +186,7 @@ void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, 
     }
 
     if (padding==0){
-        matrix* tmp = initMat(mapSize, mapSize, 0);
+//        matrix* tmp = initMat(mapSize, mapSize, 1);
         for (i=0; i<outH; i++){
             for (j=0; j<outW; j++){
 //                subMat(tmp, inMat, i, mapSize, j, mapSize);
@@ -193,7 +199,7 @@ void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, 
                 }
             }
         }
-        freeMat(tmp);
+//        freeMat(tmp);
         return;
     }else{
         matrix* newInputMat = initMat(inMat->row+2*padding, inMat->column+2*padding, 1);
@@ -203,7 +209,7 @@ void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, 
             }
         }
 
-        matrix* tmp = initMat(mapSize, mapSize, 0);
+//        matrix* tmp = initMat(mapSize, mapSize, 0);
         for (i=0; i<outH; i++){
             for (j=0; j<outW; j++){
 //                subMat(tmp, newInputMat, i, mapSize, j, mapSize);
@@ -216,7 +222,7 @@ void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, 
                 }
             }
         }
-        freeMat(tmp);
+//        freeMat(tmp);
         freeMat(newInputMat);
         return;
     }
@@ -297,10 +303,10 @@ void nnForward(OutLayer* O, float* inArr){
     for (i=0; i<O->outputNum; i++){
         vMat->val[i] += O->bias[i];
         O->v[i] = vMat->val[i];
-        O->y[i] = activate(vMat->val[i]);
+//        O->y[i] = activate(vMat->val[i]);
 //        O->y[i] = vMat.val[i];
     }
-    softMax(O->p, O->y, O->outputNum);
+    softMax(O->p, O->v, O->outputNum);
     freeMat(inMat);
     freeMat(vMat);
 };
@@ -353,7 +359,7 @@ void cnnbp(CNN* cnn, float* outputData){
     printf("[test] start cnnbw\n");
     int i,j,c,r; // 将误差保存到网络中
     for(i=0;i<cnn->Out->outputNum;i++)
-        cnn->e[i]=cnn->Out->y[i]-outputData[i];
+        cnn->e[i]=cnn->Out->p[i]-outputData[i];
 
     // Output layer
     for(i=0;i<cnn->Out->outputNum;i++)
@@ -400,7 +406,7 @@ void cnnbp(CNN* cnn, float* outputData){
             addMat(sum,cnn->S2->d[i],sum);
             freeMat(rot_weight);
         }
-        cnn->S2->d[i] = sum;
+        cnn->S2->d[i] = copyMat(sum);
         /*
         for(r=0;r<cnn->C3->inputHeight;r++)
             for(c=0;c<cnn->C3->inputWidth;c++)
@@ -546,7 +552,7 @@ void cnnclear(CNN* cnn){
     for(j=0;j<cnn->Out->outputNum;j++){
         cnn->Out->d[j]=(float)0.0;
         cnn->Out->v[j]=(float)0.0;
-        cnn->Out->y[j]=(float)0.0;
+//        cnn->Out->y[j]=(float)0.0;
     }
 }
 
@@ -558,6 +564,12 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, i
         printf("Epoch %d \n", epoch);
         int n;
         for (n=0; n<trainNum; n++){
+
+            if (n==999){
+                int a = 0;
+                a++;
+            }
+
             char saveFilePath[30];
             sprintf(saveFilePath, "data/weight/cnnWeight_%d_%d.txt", epoch, n);
             cnnSaveWeight(cnn, saveFilePath);
@@ -575,6 +587,9 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, i
 
             sprintf(saveFilePath, "data/d/cnnD_%d_%d.txt", epoch, n);
             cnnSaveD(cnn, saveFilePath);
+
+            sprintf(saveFilePath, "data/dWeight/cnnDWeight_%d_%d.txt", epoch, n);
+            cnnSaveDWeight(cnn, saveFilePath);
 
             cnnclear(cnn);
             float l=0.0;
@@ -595,7 +610,9 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, i
 
 float testModel(CNN* cnn, ImgArr inputData, LabelArr outputData, int testNum){
     int sumOfCorrect = 0;
+    float lossSum = 0;
     int n;
+    printf("[test]   test   ");
     for (n=0; n<testNum; n++){
         cnnfw(cnn, inputData->ImgMatPtr[n]);
         int i, maxIndex=0;
@@ -604,7 +621,9 @@ float testModel(CNN* cnn, ImgArr inputData, LabelArr outputData, int testNum){
             maxIndex = (cnn->Out->p[i]>0)?i:maxIndex;
         }
         if (maxIndex == outputData->LabelPtr[n].Labely) sumOfCorrect++;
+        lossSum += -log(cnn->Out->p[outputData->LabelPtr[n].Labely]);
     }
+    printf("loss = %f,   acc = %f\n", lossSum/(float) testNum, sumOfCorrect/(float) testNum);
     return sumOfCorrect/(float) testNum;
 };
 
@@ -681,7 +700,7 @@ void cnnSaveOutput(CNN *cnn, matrix *inMat, const char *filename){
     // Out
     fprintf(fp, "Out output y:\n");
     for(i=0;i<cnn->Out->outputNum;i++){
-        fprintf(fp, "%.4f  ", cnn->Out->y[i]);
+        fprintf(fp, "%.4f  ", cnn->Out->v[i]);
     }
     fprintf(fp, "\n--------------------\n");
 
@@ -862,6 +881,60 @@ void cnnSaveD(CNN *cnn, const char *filename){
         fprintf(fp, "\n");
     fprintf(fp, "\n--------------------\n");
 
+
+    fclose(fp);
+}
+
+void cnnSaveDWeight(CNN *cnn, const char *filename){
+    FILE  *fp=NULL;
+    fp=fopen(filename,"wb");
+    if(fp==NULL)
+        printf("write file %s failed\n", filename);
+
+    int i,j,r,c;
+
+    // C1
+    fprintf(fp, "C1 dmap:\n");
+    for(i=0;i<cnn->C1->inChannels;i++){
+        for(j=0;j<cnn->C1->outChannels;j++){
+            for(r=0;r<cnn->C1->mapSize;r++){
+                for (c=0;c<cnn->C1->mapSize;c++){
+                    float val = *getMatVal(cnn->C1->dmapWeight[i][j], r, c);
+                    if (val>=0){
+                        fprintf(fp, " %.4f  ", val);
+                    }else{
+                        fprintf(fp, "%.4f  ", val);
+                    }
+                }
+                fprintf(fp, "\n");
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n");
+    }
+
+    fprintf(fp, "\n--------------------\n");
+
+    // C3
+    fprintf(fp, "C3 dmap:\n");
+    for(i=0;i<cnn->C3->inChannels;i++){
+        for(j=0;j<cnn->C3->outChannels;j++){
+            for(r=0;r<cnn->C3->mapSize;r++){
+                for (c=0;c<cnn->C3->mapSize;c++){
+                    float val = *getMatVal(cnn->C3->dmapWeight[i][j], r, c);
+                    if (val>=0){
+                        fprintf(fp, " %.4f  ", val);
+                    }else{
+                        fprintf(fp, "%.4f  ", val);
+                    }
+                }
+                fprintf(fp, "\n");
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n");
+    }
+    fprintf(fp, "\n--------------------\n");
 
     fclose(fp);
 }
