@@ -423,7 +423,7 @@ void cnnbp(CNN* cnn, float* outputData){
             addMat(sum,cnn->S2->d[i],sum);
             freeMat(rot_weight);
         }
-        cnn->S2->d[i] = sum;
+        cnn->S2->d[i] = copyMat(sum);
         /*
         for(r=0;r<cnn->C3->inputHeight;r++)
             for(c=0;c<cnn->C3->inputWidth;c++)
@@ -662,10 +662,13 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, i
     int epoch;
     int batch = opts.batch;
     for (epoch=0; epoch<opts.numepochs; epoch++){
-        printf("Epoch %d \n", epoch);
         int n;
+        int hitSum = 0;
         for (n=0; n<trainNum; n++){
-            char saveFilePath[30];
+//            if (n/batch == 100){
+//                printf("        Epoch %d batch %d n %d start \n", epoch, n/batch, n);
+//            }
+            char saveFilePath[50];
             sprintf(saveFilePath, "data/weight/cnnWeight_%d_%d.txt", epoch, n);
             cnnSaveWeight(cnn, saveFilePath);
 
@@ -676,7 +679,15 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, i
             cnnbp(cnn, outputData->LabelPtr[n].LabelData);
 //            printf("[test] inputData->ImgMatPtr[%d] - %d*%d\n", n, inputData->ImgMatPtr[n]->row, inputData->ImgMatPtr[n]->column);
 
-
+            int maxIndex = 0;
+            float maxP = 0;
+            for (i=0; i<cnn->Out->outputNum; i++){
+                if (cnn->Out->p[i] > maxP){
+                    maxP = cnn->Out->p[i];
+                    maxIndex = i;
+                }
+            }
+            if (maxIndex == outputData->LabelPtr[n].Labely) hitSum++;
 
             gradient_save(cnn, opts, inputData->ImgMatPtr[n], batch);
 //            gradient_update(cnn, opts, inputData->ImgMatPtr[n]);
@@ -706,9 +717,10 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, i
             if ((n+1)%batch == 0){
                 gradient_update_Batch(cnn);
                 cnnclear_Save(cnn);
+                printf("        Epoch %d batch %d finished \n", epoch, n/batch);
             }
         }
-        printf("Epoch %d,    train loss = %f\n", epoch,cnn->L[epoch]);
+        printf("Epoch %d,    train loss = %f,     acc = %f\n", epoch,cnn->L[epoch], (float)hitSum/trainNum);
         opts.eta *= 0.9;
     }
     printf("[test] end trainModel\n");

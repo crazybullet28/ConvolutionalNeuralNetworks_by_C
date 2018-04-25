@@ -14,10 +14,10 @@ int main() {
     cnn_setup(cnn,testImg->ImgMatPtr[0]->row,testImg->ImgMatPtr[0]->column,testLabel->LabelPtr[0].l);
 
     CNNOpts opts;
-    opts.numepochs=20;
+    opts.numepochs=10;
     opts.eta=0.001;
     opts.batch = 10;
-    int trainNum=100;
+    int trainNum=10000;
     trainModel(cnn,testImg,testLabel,opts,trainNum);
 //    testModel()
 
