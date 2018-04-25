@@ -71,7 +71,8 @@ CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChann
             for (k=0; k<mapSize; k++){
                 for (l=0; l<mapSize; l++){
 //                    covLayer->mapData[i][j][k][l] = (rand()/((float)RAND_MAX+1)-0.5)*2 * sqrt(6.0/(mapSize*mapSize*inChannels+outChannels));             // xavier initialize
-                    *getMatVal(covLayer->mapWeight[i][j], k, l) = (rand()/((float)RAND_MAX+1)-0.5)*2 * sqrt(6.0/(mapSize*mapSize*inChannels+outChannels));
+//                    *getMatVal(covLayer->mapWeight[i][j], k, l) = (rand()/((float)RAND_MAX+1)-0.5)*2 * sqrt(6.0/(mapSize*mapSize*inChannels+outChannels));
+                    *getMatVal(covLayer->mapWeight[i][j], k, l) = (rand()/((float)RAND_MAX+1)-0.5)*2 * sqrt((float)6.0/(float)(mapSize*mapSize*(inChannels+outChannels)));
                 }
             }
         }
@@ -157,7 +158,7 @@ OutLayer* initOutLayer(int inputNum,int outputNum){
 };
 
 void cnn_setup(CNN* cnn, int inputHeight, int inputWidth, int outNum){
-    printf("[test] start cnn_setup\n");
+//    printf("[test] start cnn_setup\n");
     int inH = inputHeight;
     int inW = inputWidth;
     cnn->C1 = initCovLayer(inH, inW, 5, 1, 6, 2);       // 28*28 -> 32*32 -> 28*28
@@ -175,7 +176,7 @@ void cnn_setup(CNN* cnn, int inputHeight, int inputWidth, int outNum){
     cnn->Out = initOutLayer(inH*inW * 12, outNum);        // 300 -> 10
 
     cnn->e=(float *)malloc(cnn->Out->outputNum*sizeof(float));
-    printf("[test] end trainModel\n");
+//    printf("[test] end trainModel\n");
 };
 
 
@@ -323,7 +324,7 @@ float computeLoss(float* outArr, int labely){
 };
 
 void cnnfw(CNN* cnn, matrix* inMat){       // only one matrix a time.           outArr has already been malloc
-    printf("[test] start cnnfw\n");
+//    printf("[test] start cnnfw\n");
     matrix** input = (matrix**)malloc(sizeof(matrix*));
     input[0] = copyMat(inMat);
     convolution(cnn->C1, input);
@@ -344,7 +345,7 @@ void cnnfw(CNN* cnn, matrix* inMat){       // only one matrix a time.           
 
     freeMat(input[0]);
     free(input);
-    printf("[test] end cnnfw\n");
+//    printf("[test] end cnnfw\n");
 }
 
 matrix* UpSample(matrix* mat,int multiple_c,int multiple_r,int mapsize){
@@ -522,24 +523,18 @@ void cnnclear(CNN* cnn){
 
 void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, int trainNum){           // may be slow?
     printf("[test] start trainModel\n");
-    cnn->L=(float *)malloc(opts.numepochs*sizeof(float));
+//    cnn->L=(float *)malloc(opts.numepochs*sizeof(float));
+    cnn->L=(float*)malloc(trainNum*sizeof(float));
     int epoch;
     for (epoch=0; epoch<opts.numepochs; epoch++){
         printf("Epoch %d \n", epoch);
         int n;
         for (n=0; n<trainNum; n++){
 
-//            if (n==999){
-//                int a = 0;
-//                a++;
-//            }
-
             char saveFilePath[30];
             sprintf(saveFilePath, "data/weight/cnnWeight_%d_%d.txt", epoch, n);
             cnnSaveWeight(cnn, saveFilePath);
 
-//            matrix* inputMat = defMat(inputData->ImgMatPtr[n].ImgData, inputData->ImgMatPtr[n].r, inputData->ImgMatPtr[n].c);
-//            freeMat(inputMat);
             cnnfw(cnn, inputData->ImgMatPtr[n]);
 //            cnn->L[epoch] = computeLoss(cnn->Out->p, outputData->LabelPtr[n].Labely);
             cnnbp(cnn, outputData->LabelPtr[n].LabelData);
@@ -557,14 +552,14 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, i
 
             cnnclear(cnn);
             float l=0.0;
-//            int i;
-//            for(i=0;i<cnn->Out->outputNum;i++)
-//                l=l+cnn->e[i]*cnn->e[i];
-//            if(n==0)
-//                cnn->L[n]=l/(float)2.0;
-//            else
-//                cnn->L[n]=cnn->L[n-1]*0.99+0.01*l/(float)2.0;
-            l = computeLoss(cnn->Out->p, outputData->LabelPtr[n].Labely);
+            int i;
+            for(i=0;i<cnn->Out->outputNum;i++)
+                l=l+cnn->e[i]*cnn->e[i];
+            if(n==0)
+                cnn->L[n]=l/(float)2.0;
+            else
+                cnn->L[n]=cnn->L[n-1]*0.99+0.01*l/(float)2.0;
+//            l = computeLoss(cnn->Out->p, outputData->LabelPtr[n].Labely);
             printf("\"Epoch %d,        n = %d,     loss = %f\n", epoch, n, l);
         }
     }

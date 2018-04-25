@@ -15,7 +15,7 @@ int main() {
 
     CNNOpts opts;
     opts.numepochs=1;
-    opts.eta=0.0001;
+    opts.eta=1;
     int trainNum=5000;
     trainModel(cnn,testImg,testLabel,opts,trainNum);
 //    testModel()
