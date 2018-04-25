@@ -383,7 +383,7 @@ void cnnbp(CNN* cnn, float* outputData){
     }
 
     // S2层，S2层没有激活函数，这里只有卷积层有激活函数部分
-    // 由卷积层传递给采样层的误差梯度，这里卷积层共有6*16个卷积模板
+    // 由卷积层传递给采样层的误差梯度，这里卷积层共有6*12个卷积模板
     int output_c=cnn->C3->inputWidth;
     int output_r=cnn->C3->inputHeight;
     int input_c=cnn->S4->inputWidth;
@@ -430,7 +430,7 @@ void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat){
         for(j=0;j<cnn->C1->inChannels;j++){
             matrix* rot_d = initMat(cnn->C1->outputHeight,cnn->C1->outputWidth,1);
             rotate180Mat(rot_d,cnn->C1->d[i]);
-            covolution_once(cnn->C1->dmapWeight[j][i],inMat,rot_d,cnn->C1->mapSize,cnn->C1->mapSize,0);
+            covolution_once(cnn->C1->dmapWeight[j][i],inMat,rot_d,cnn->C1->mapSize,cnn->C1->mapSize,2);
             matrix* minus_weight = initMat(cnn->C1->mapSize,cnn->C1->mapSize,1);
             mulMatVal(minus_weight, cnn->C1->dmapWeight[j][i], -1*opts.eta);
             addMat_replace(cnn->C1->mapWeight[j][i],minus_weight);
