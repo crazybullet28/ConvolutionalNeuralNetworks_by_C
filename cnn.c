@@ -190,6 +190,10 @@ void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, 
         exit(1);
     }
 
+    matrix* rotatedMap = initMat(mapSize, mapSize, 1);
+    rotate180Mat(rotatedMap, map);
+
+
     if (padding==0){
 //        matrix* tmp = initMat(mapSize, mapSize, 1);
         for (i=0; i<outH; i++){
@@ -199,7 +203,7 @@ void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, 
 //                *getMatVal(v, i, j)=val;
                 for (r=0; r<map->row; r++){
                     for (c=0; c<map->column; c++){
-                        *getMatVal(v, i, j)+=*getMatVal(inMat, i+r, j+c)* *getMatVal(map, r, c);
+                        *getMatVal(v, i, j)+=*getMatVal(inMat, i+r, j+c)* *getMatVal(rotatedMap, r, c);
                     }
                 }
             }
@@ -222,7 +226,7 @@ void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, 
 //                *getMatVal(v, i, j)=val;
                 for (r=0; r<map->row; r++){
                     for (c=0; c<map->column; c++){
-                        *getMatVal(v, i, j)+=*getMatVal(newInputMat, i+r, j+c)* *getMatVal(map, r, c);
+                        *getMatVal(v, i, j)+=*getMatVal(newInputMat, i+r, j+c)* *getMatVal(rotatedMap, r, c);
                     }
                 }
             }
