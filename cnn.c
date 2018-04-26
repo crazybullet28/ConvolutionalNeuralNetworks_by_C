@@ -347,11 +347,11 @@ matrix* UpSample(matrix* mat,int multiple_c,int multiple_r,int mapsize){
     for(j=0;j<mapsize*multiple_r;j=j+mapsize){
         for(i=0;i<mapsize*multiple_c;i=i+mapsize)// 宽的扩充
             for(m=0;m<mapsize;m++)
-                *getMatVal(res,j,i+m)=*getMatVal(mat,j/mapsize,i/mapsize);
+                *getMatVal(res,j,i+m)=*getMatVal(mat,j/mapsize,i/mapsize)/(mapsize*mapsize);
 
         for(n=1;n<mapsize;n++)      //  高的扩充
             for(i=0;i<multiple_c*mapsize;i++)
-                *getMatVal(res,j+n,i)=*getMatVal(res,j,i);
+                *getMatVal(res,j+n,i)=*getMatVal(res,j,i)/(mapsize*mapsize);
     }
     return res;
 }
@@ -385,7 +385,7 @@ void cnnbp(CNN* cnn, float* outputData){
         matrix* C3e = UpSample(cnn->S4->d[i],cnn->S4->inputWidth/cnn->S4->mapSize,cnn->S4->inputHeight/cnn->S4->mapSize,cnn->S4->mapSize);
         for(r=0;r<cnn->S4->inputHeight;r++)
             for(c=0;c<cnn->S4->inputWidth;c++)
-                *getMatVal(cnn->C3->d[i],r,c)=*getMatVal(C3e,r,c)*sigmoid_derivation(*getMatVal(cnn->C3->y[i],r,c))/(cnn->S4->mapSize * cnn->S4->mapSize);
+                *getMatVal(cnn->C3->d[i],r,c)=*getMatVal(C3e,r,c)*sigmoid_derivation(*getMatVal(cnn->C3->y[i],r,c));
         freeMat(C3e);
     }
 
@@ -640,9 +640,12 @@ float testModel(CNN* cnn, ImgArr inputData, LabelArr outputData, int testNum){
     for (n=0; n<testNum; n++){
         cnnfw(cnn, inputData->ImgMatPtr[n]);
         int i, maxIndex=0;
-        double max;
+        double max=0;
         for (i=0; i<cnn->Out->outputNum; i++){
-            maxIndex = (cnn->Out->p[i]>0)?i:maxIndex;
+            if (cnn->Out->p[i]>max){
+                max = cnn->Out->p[i];
+                maxIndex = i;
+            }
         }
         if (maxIndex == outputData->LabelPtr[n].Labely) sumOfCorrect++;
         lossSum += -log(cnn->Out->p[outputData->LabelPtr[n].Labely]);
