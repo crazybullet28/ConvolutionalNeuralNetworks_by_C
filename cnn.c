@@ -161,32 +161,37 @@ void cnn_setup(CNN* cnn, int inputHeight, int inputWidth, int outNum){
 //    printf("[test] start cnn_setup\n");
     int inH = inputHeight;
     int inW = inputWidth;
-    cnn->C1 = initCovLayer(inH, inW, 5, 1, 6, 0);       // 28*28 -> 32*32 -> 28*28          // 24*24
+    cnn->C1 = initCovLayer(inH, inW, 5, 1, 6, 2);       // 28*28 -> 32*32 -> 28*28          // 24*24
     inH = cnn->C1->outputHeight;
     inW = cnn->C1->outputWidth;
     cnn->S2 = initPoolLayer(inH, inW, 2, 6, 6, 1);      // 28*28 -> 14*14                   // 12*12
     inH = cnn->S2->outputHeight;
     inW = cnn->S2->outputWidth;
-    cnn->C3 = initCovLayer(inH, inW, 5, 6, 12, 0);      // 14*14 -> 10*10                   // 8*8
+    cnn->C3 = initCovLayer(inH, inW, 5, 6, 16, 0);      // 14*14 -> 10*10                   // 8*8
     inH = cnn->C3->outputHeight;
     inW = cnn->C3->outputWidth;
-    cnn->S4 = initPoolLayer(inH, inW, 2, 12, 12, 1);    // 10*10 -> 5*5                     // 4*4
+    cnn->S4 = initPoolLayer(inH, inW, 2, 16, 16, 1);    // 10*10 -> 5*5                     // 4*4
     inH = cnn->S4->outputHeight;
     inW = cnn->S4->outputWidth;
-    cnn->Out = initOutLayer(inH*inW * 12, outNum);        // 300 -> 10                      // 192 -> 10
+    cnn->Out = initOutLayer(inH*inW * 16, outNum);        // 300 -> 10                      // 192 -> 10
 
     cnn->e=(float *)malloc(cnn->Out->outputNum*sizeof(float));
 //    printf("[test] end trainModel\n");
 };
 
-
-void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, int padding){
+void convolution_once(matrix *v, matrix *inMat, matrix *map, int outH, int outW, int padding){
     int mapSize = map->row;
     int i,j, r, c;
 
     if (outH != inMat->row+2*padding-(mapSize-1) || outW != inMat->row+2*padding-(mapSize-1)){
         fflush(stdout);
-        fprintf(stderr, "Error in covolution_once. Size output not fit: \nin %d - %d, padding %d, map %d, out %d - %d\n", inMat->row, inMat->column, padding, mapSize, outH, outW);
+        fprintf(stderr, "Error in convolution_once. Size output not fit: \nin %d - %d, padding %d, map %d, out %d - %d\n", inMat->row, inMat->column, padding, mapSize, outH, outW);
+        exit(1);
+    }
+
+    if (v->column != outW || v->row != outH){
+        fflush(stdout);
+        fprintf(stderr, "Error in convolution_once. Output size output not fit: \n v %d - %d, out %d - %d\n", v->row, v->column, outH, outW);
         exit(1);
     }
 
@@ -195,12 +200,8 @@ void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, 
 
 
     if (padding==0){
-//        matrix* tmp = initMat(mapSize, mapSize, 1);
         for (i=0; i<outH; i++){
             for (j=0; j<outW; j++){
-//                subMat(tmp, inMat, i, mapSize, j, mapSize);
-//                float val = dotMatSum(tmp, map);
-//                *getMatVal(v, i, j)=val;
                 for (r=0; r<map->row; r++){
                     for (c=0; c<map->column; c++){
                         *getMatVal(v, i, j)+=*getMatVal(inMat, i+r, j+c)* *getMatVal(rotatedMap, r, c);
@@ -243,14 +244,14 @@ void convolution(CovLayer* C, matrix** inMat){
 
     for (i=0; i<C->outChannels; i++){
         for (j=0; j<C->inChannels; j++){
-            covolution_once(tmpv, inMat[j], C->mapWeight[j][i], C->outputHeight, C->outputWidth, C->paddingForward);
+            convolution_once(tmpv, inMat[j], C->mapWeight[j][i], C->outputHeight, C->outputWidth, C->paddingForward);
             addMat_replace(C->v[i], tmpv);
 //            clearMat(tmpv);       // not necessary
         }
         for (k=0; k<C->outputHeight; k++){
             for (l=0; l<C->outputWidth; l++){
-                *getMatVal(C->v[i], k, l) += C->bias[i];
-                *getMatVal(C->y[i], k, l) = activate_sigmoid(*getMatVal(C->v[i], k, l));
+//                *getMatVal(C->v[i], k, l) += C->bias[i];
+                *getMatVal(C->y[i], k, l) = activate_sigmoid(*getMatVal(C->v[i], k, l)+C->bias[i]);
             }
         }
     }
@@ -288,39 +289,28 @@ void pooling_mean(matrix* res, matrix* inMat, int mapSize){
 };
 
 void pooling(PoolLayer* S, matrix** inMat){
-    int i, j, k;
-    for (i=0; i<S->inChannels; i++){
-        if (S->poolType == 0){
+    if (S->poolType == 0) {
+        int i;
+        for (i=0; i<S->inChannels; i++){
             pooling_max(S->y[i], inMat[i], S->mapSize);
-        }else{
+        }
+    }else{
+        int i;
+        for (i=0; i<S->inChannels; i++){
             pooling_mean(S->y[i], inMat[i], S->mapSize);
         }
     }
 };
 
 void nnForward(OutLayer* O, float* inArr){
-    matrix *inMat, *vMat;
-    inMat = initMat(1, O->inputNum, 1);
-    int i;
-    for (i=0; i<O->inputNum; i++){
-        inMat->val[i] = inArr[i];
+    int i, j;
+    for(i=0;i<O->outputNum;i++){
+        float sum=0;
+        for (j=0; j<O->inputNum; j++){
+            O->v[i] += inArr[j] * *getMatVal(O->weight, j, i);
+        }
+        O->p[i]=activate_sigmoid(O->v[i]+O->bias[i]);
     }
-
-    vMat = initMat(1, O->outputNum, 1);
-
-    mulMat(vMat, inMat, O->weight);
-    for (i=0; i<O->outputNum; i++){
-        vMat->val[i] += O->bias[i];
-        O->v[i] = vMat->val[i];
-//        O->y[i] = activate(vMat->val[i]);
-//        O->y[i] = vMat.val[i];
-    }
-//    softMax(O->p, O->v, O->outputNum);
-    for (i=0; i<O->outputNum; i++){
-        O->p[i] = activate_sigmoid(O->v[i]);
-    }
-    freeMat(inMat);
-    freeMat(vMat);
 };
 
 float computeLoss(float* outArr, int labely){
@@ -343,7 +333,6 @@ void cnnfw(CNN* cnn, matrix* inMat){       // only one matrix a time.           
         for (j=0; j<tmpLength; j++){
             nn_input[i*tmpLength+j] = cnn->S4->y[i]->val[j];
         }
-//        memcpy(&nn_input[i*tmpLength], cnn->S4->y[i], tmpLength*sizeof(float));
     }
     nnForward(cnn->Out, nn_input);
 
@@ -358,17 +347,17 @@ matrix* UpSample(matrix* mat,int multiple_c,int multiple_r,int mapsize){
     for(j=0;j<mapsize*multiple_r;j=j+mapsize){
         for(i=0;i<mapsize*multiple_c;i=i+mapsize)// 宽的扩充
             for(m=0;m<mapsize;m++)
-                *getMatVal(res,j,i+m)=(*getMatVal(mat,j/mapsize,i/mapsize))/(float)(mapsize*mapsize);
+                *getMatVal(res,j,i+m)=*getMatVal(mat,j/mapsize,i/mapsize);
 
         for(n=1;n<mapsize;n++)      //  高的扩充
             for(i=0;i<multiple_c*mapsize;i++)
-                *getMatVal(res,j+n,i)=(*getMatVal(res,j,i))/(float)(mapsize*mapsize);
+                *getMatVal(res,j+n,i)=*getMatVal(res,j,i);
     }
     return res;
 }
 
 void cnnbp(CNN* cnn, float* outputData){
-    printf("[test] start cnnbw\n");
+//    printf("[test] start cnnbw\n");
     int i,j,c,r; // 将误差保存到网络中
     for(i=0;i<cnn->Out->outputNum;i++)
         cnn->e[i]=cnn->Out->p[i]-outputData[i];
@@ -401,30 +390,16 @@ void cnnbp(CNN* cnn, float* outputData){
     }
 
     // S2层，S2层没有激活函数，这里只有卷积层有激活函数部分
-    // 由卷积层传递给采样层的误差梯度，这里卷积层共有6*16个卷积模板
-    int output_c=cnn->C3->inputWidth;
-    int output_r=cnn->C3->inputHeight;
-    int input_c=cnn->S4->inputWidth;
-    int input_r=cnn->S4->inputHeight;
-    int mapsize_C3=cnn->C3->mapSize;
-    int padding_size = mapsize_C3 -1;
-
-    matrix* sum = initMat(output_r, output_c, 1);
+    // 由卷积层传递给采样层的误差梯度，这里卷积层共有6*12个卷积模板
     for(i=0;i<cnn->S2->outChannels;i++){
         for(j=0;j<cnn->C3->outChannels;j++){
-            matrix* rot_weight = initMat(mapsize_C3,mapsize_C3,1);
-            rotate180Mat(rot_weight,cnn->C3->mapWeight[i][j]);
-            covolution_once(cnn->S2->d[i], cnn->C3->d[j], rot_weight, output_r, output_c, padding_size);
-            addMat(sum,cnn->S2->d[i],sum);
-            freeMat(rot_weight);
+            matrix* rot = initMat(cnn->C3->mapSize, cnn->C3->mapSize, 1);
+            matrix* corr = initMat(cnn->S2->d[i]->row, cnn->S2->d[i]->column, 1);
+            rotate180Mat(rot, cnn->C3->mapWeight[i][j]);
+            convolution_once(corr, cnn->C3->d[j], cnn->C3->mapWeight[i][j], cnn->C3->inputWidth, cnn->C3->inputHeight, cnn->C3->mapSize-1);
+            addMat(cnn->S2->d[i],cnn->S2->d[i],corr);
+            freeMat(corr);
         }
-        cnn->S2->d[i] = copyMat(sum);
-//        cnn->S2->d[i] = sum;
-        /*
-        for(r=0;r<cnn->C3->inputHeight;r++)
-            for(c=0;c<cnn->C3->inputWidth;c++)
-                // 这里本来用于采样的激活
-        */
     }
 
     // C1层，卷积层
@@ -434,11 +409,86 @@ void cnnbp(CNN* cnn, float* outputData){
         for(r=0;r<cnn->S2->inputHeight;r++)
             for(c=0;c<cnn->S2->inputWidth;c++)
                 *getMatVal(cnn->C1->d[i],r,c)=*getMatVal(C1e,r,c)*sigmoid_derivation(*getMatVal(cnn->C1->y[i],r,c));
-        free(C1e);
+        freeMat(C1e);
     }
-
-    printf("[test] end cnnbw\n");
+//    printf("[test] end cnnbw\n");
 }
+
+//void cnnbp(CNN* cnn,float* outputData) // 网络的后向传播
+//{
+////    printf("[test] start bp\n");
+//    int i,j,c,r; // 将误差保存到网络中
+//    for(i=0;i<cnn->Out->outputNum;i++)
+//        cnn->e[i]=cnn->Out->p[i]-outputData[i];
+//
+//    /*从后向前反向计算*/
+//    // 输出层O5
+//    for(i=0;i<cnn->Out->outputNum;i++)
+//        cnn->Out->d[i]=cnn->e[i]*sigmoid_derivation(cnn->Out->p[i]);
+//
+//    // S4层，传递到S4层的误差
+//    // 这里没有激活函数
+//    for(i=0;i<cnn->S4->outChannels;i++)
+//        for(r=0;r<cnn->S4->outputHeight;r++)
+//            for(c=0;c<cnn->S4->outputWidth;c++)
+//                for(j=0;j<cnn->Out->outputNum;j++){
+//                    int wInt=i*cnn->S4->outputWidth*cnn->S4->outputHeight+r*cnn->S4->outputWidth;
+//                    *getMatVal(cnn->S4->d[i], r, c)=*getMatVal(cnn->S4->d[i], r, c)+cnn->Out->d[j] * *getMatVal(cnn->Out->weight, wInt, j);
+//                }
+//
+//    // C3层
+//    // 由S4层传递的各反向误差,这里只是在S4的梯度上扩充一倍
+//    int mapdata=cnn->S4->mapSize;
+//    // 这里的Pooling是求平均，所以反向传递到下一神经元的误差梯度没有变化
+//    for(i=0;i<cnn->C3->outChannels;i++){
+//        matrix* C3e=UpSample(cnn->S4->d[i], cnn->S4->outputWidth, cnn->S4->outputHeight,cnn->S4->mapSize);
+//        for(r=0;r<cnn->S4->inputHeight;r++)
+//            for(c=0;c<cnn->S4->inputWidth;c++)
+//                *getMatVal(cnn->C3->d[i], r, c)=*getMatVal(C3e, r, c)*sigmoid_derivation(*getMatVal(cnn->C3->y[i], r, c))/(float)(cnn->S4->mapSize*cnn->S4->mapSize);
+//        freeMat(C3e);
+//    }
+//
+//    // S2层，S2层没有激活函数，这里只有卷积层有激活函数部分
+//    // 由卷积层传递给采样层的误差梯度，这里卷积层共有6*12个卷积模板
+////    outSize.c=cnn->C3->inputWidth;
+////    outSize.r=cnn->C3->inputHeight;
+////    nSize inSize={cnn->S4->inputWidth,cnn->S4->inputHeight};
+////    nSize mapSize={cnn->C3->mapSize,cnn->C3->mapSize};
+//    int output_c=cnn->S2->outputWidth;
+//    int output_r=cnn->S2->outputHeight;
+//    int input_c=cnn->S4->inputWidth;
+//    int input_r=cnn->S4->inputHeight;
+//    int mapsize_C3=cnn->C3->mapSize;
+//    int padding_size = mapsize_C3 -1;
+//    matrix* sum = initMat(output_r, output_c, 1);
+//    for(i=0;i<cnn->S2->outChannels;i++){
+//        for(j=0;j<cnn->C3->outChannels;j++){
+//            matrix* rot_weight = initMat(cnn->C3->mapWeight[i][j]->row, cnn->C3->mapWeight[i][j]->column, 1);
+//            rotate180Mat(rot_weight, cnn->C3->mapWeight[i][j]);
+//            convolution_once(cnn->S2->d[i], cnn->C3->d[j], rot_weight, output_r, output_c, padding_size);
+//            addMat(sum,cnn->S2->d[i],sum);
+//            freeMat(rot_weight);
+//        }
+//        cnn->S2->d[i] = copyMat(sum);
+//        /*
+//        for(r=0;r<cnn->C3->inputHeight;r++)
+//            for(c=0;c<cnn->C3->inputWidth;c++)
+//                // 这里本来用于采样的激活
+//        */
+//    }
+//
+//    // C1层，卷积层
+//    mapdata=cnn->S2->mapSize;
+//    // 这里的Pooling是求平均，所以反向传递到下一神经元的误差梯度没有变化
+//    for(i=0;i<cnn->C1->outChannels;i++){
+//        matrix* C1e=UpSample(cnn->S2->d[i],cnn->S2->outputWidth, cnn->S2->outputHeight,cnn->S2->mapSize);
+//        for(r=0;r<cnn->S2->inputHeight;r++)
+//            for(c=0;c<cnn->S2->inputWidth;c++)
+//                *getMatVal(cnn->C1->d[i], r, c)=*getMatVal(C1e, r, c)*sigmoid_derivation(*getMatVal(cnn->C1->y[i], r, c))/(float)(cnn->S2->mapSize*cnn->S2->mapSize);
+//        freeMat(C1e);
+//    }
+//    printf("[test] end bp\n");
+//}
 
 
 void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat){
@@ -449,7 +499,8 @@ void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat){
         for(j=0;j<cnn->C1->inChannels;j++){
             matrix* rot_input = initMat(inMat->row,inMat->column,1);
             rotate180Mat(rot_input,inMat);
-            covolution_once(cnn->C1->dmapWeight[j][i],rot_input,cnn->C1->d[i],cnn->C1->mapSize,cnn->C1->mapSize,cnn->C1->paddingForward);
+            convolution_once(cnn->C1->dmapWeight[j][i], rot_input, cnn->C1->d[i], cnn->C1->mapSize, cnn->C1->mapSize,
+                             cnn->C1->paddingForward);
             matrix* minus_weight = initMat(cnn->C1->mapSize,cnn->C1->mapSize,1);
             mulMatVal(minus_weight, cnn->C1->dmapWeight[j][i], -1*opts.eta);
             addMat_replace(cnn->C1->mapWeight[j][i],minus_weight);
@@ -465,7 +516,8 @@ void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat){
         for(j=0;j<cnn->C3->inChannels;j++){
             matrix* rot_input = initMat(cnn->S2->outputHeight,cnn->S2->outputWidth,1);
             rotate180Mat(rot_input,cnn->S2->y[j]);
-            covolution_once(cnn->C3->dmapWeight[j][i],rot_input,cnn->C3->d[i],cnn->C3->mapSize,cnn->C3->mapSize,cnn->C3->paddingForward);
+            convolution_once(cnn->C3->dmapWeight[j][i], rot_input, cnn->C3->d[i], cnn->C3->mapSize, cnn->C3->mapSize,
+                             cnn->C3->paddingForward);
             matrix* minus_weight = initMat(cnn->C3->mapSize,cnn->C3->mapSize,1);
             mulMatVal(minus_weight, cnn->C3->dmapWeight[j][i], -1*opts.eta);
             addMat_replace(cnn->C3->mapWeight[j][i],minus_weight);
@@ -535,24 +587,33 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, i
         int n;
         for (n=0; n<trainNum; n++){
 
-            char saveFilePath[30];
-            sprintf(saveFilePath, "data/weight/cnnWeight_%d_%d.txt", epoch, n);
-            cnnSaveWeight(cnn, saveFilePath);
+//            char saveFilePath[50];
+//            sprintf(saveFilePath, "data/weight/cnnWeight_%d_%d.txt", epoch, n);
+//            cnnSaveWeight(cnn, saveFilePath);
 
             cnnfw(cnn, inputData->ImgMatPtr[n]);
+            int kk;
+            for (kk=0; kk<cnn->Out->outputNum; kk++){
+                printf("%.2f ", cnn->Out->p[kk]);
+            }
+            printf("\n");
+            for (kk=0; kk<cnn->Out->outputNum; kk++){
+                printf("%.2f ", outputData->LabelPtr[n].LabelData[kk]);
+            }
+            printf("\n");
 //            cnn->L[epoch] = computeLoss(cnn->Out->p, outputData->LabelPtr[n].Labely);
             cnnbp(cnn, outputData->LabelPtr[n].LabelData);
 //            printf("[test] inputData->ImgMatPtr[%d] - %d*%d\n", n, inputData->ImgMatPtr[n]->row, inputData->ImgMatPtr[n]->column);
             gradient_update(cnn, opts, inputData->ImgMatPtr[n]);
 
-            sprintf(saveFilePath, "data/output/cnnOutput_%d_%d.txt", epoch, n);
-            cnnSaveOutput(cnn, inputData->ImgMatPtr[n], saveFilePath);
+//            sprintf(saveFilePath, "data/output/cnnOutput_%d_%d.txt", epoch, n);
+//            cnnSaveOutput(cnn, inputData->ImgMatPtr[n], saveFilePath);
 
-            sprintf(saveFilePath, "data/d/cnnD_%d_%d.txt", epoch, n);
-            cnnSaveD(cnn, saveFilePath);
+//            sprintf(saveFilePath, "data/d/cnnD_%d_%d.txt", epoch, n);
+//            cnnSaveD(cnn, saveFilePath);
 
-            sprintf(saveFilePath, "data/dWeight/cnnDWeight_%d_%d.txt", epoch, n);
-            cnnSaveDWeight(cnn, saveFilePath);
+//            sprintf(saveFilePath, "data/dWeight/cnnDWeight_%d_%d.txt", epoch, n);
+//            cnnSaveDWeight(cnn, saveFilePath);
 
             cnnclear(cnn);
             float l=0.0;
@@ -564,10 +625,10 @@ void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, i
             else
                 cnn->L[n]=cnn->L[n-1]*0.99+0.01*l/(float)2.0;
 //            l = computeLoss(cnn->Out->p, outputData->LabelPtr[n].Labely);
-            printf("\"Epoch %d,        n = %d,     loss = %f\n", epoch, n, l);
+            printf("\"Epoch %d,        n = %d,     loss = %f\n", epoch, n, cnn->L[n]);
         }
     }
-    printf("[test] end trainModel\n");
+//    printf("[test] end trainModel\n");
 };
 
 

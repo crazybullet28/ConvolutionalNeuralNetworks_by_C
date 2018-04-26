@@ -15,8 +15,8 @@ int main() {
 
     CNNOpts opts;
     opts.numepochs=1;
-    opts.eta=1;
-    int trainNum=5000;
+    opts.eta=0.1;
+    int trainNum=50000;
     trainModel(cnn,testImg,testLabel,opts,trainNum);
 //    testModel()
 
@@ -58,7 +58,7 @@ int main() {
 //
 //    printf("\n");
 //
-//    covolution_once(v, inMat, map, 5, 5, 2);
+//    convolution_once(v, inMat, map, 5, 5, 2);
 //
 //    for (i=0; i<5; i++){
 //        for (j=0; j<5; j++){

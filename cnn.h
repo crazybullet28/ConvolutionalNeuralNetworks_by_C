@@ -108,7 +108,7 @@ float acti_derivation(float y);
 
 void softMax(float* outArr, const float* inArr, int outNum);
 
-void covolution_once(matrix* v, matrix* inMat, matrix* map, int outH, int outW, int padding);
+void convolution_once(matrix *v, matrix *inMat, matrix *map, int outH, int outW, int padding);
 
 void convolution(CovLayer* C, matrix** inMat);
 

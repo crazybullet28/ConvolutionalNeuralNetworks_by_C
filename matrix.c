@@ -45,24 +45,24 @@ void clearMat(matrix *self){
     }
 }
 
-void resetMat(matrix* self, int r, int c){
-    if (self!=NULL){
-        if (self->row == r && self->column == c){
-            clearMat(self);
-        }else{
-            freeMatVal(self);
-            self->row = r;
-            self->column = c;
-            self->val = (float*) malloc(r*c*sizeof(float));
-            int i;
-            for (i=0; i<r*c; i++){
-                self->val[i] = 0;
-            }
-        }
-    }else{
-        self = initMat(r, c, 1);
-    }
-}
+//void resetMat(matrix* self, int r, int c){
+//    if (self!=NULL){
+//        if (self->row == r && self->column == c){
+//            clearMat(self);
+//        }else{
+//            freeMatVal(self);
+//            self->row = r;
+//            self->column = c;
+//            self->val = (float*) malloc(r*c*sizeof(float));
+//            int i;
+//            for (i=0; i<r*c; i++){
+//                self->val[i] = 0;
+//            }
+//        }
+//    }else{
+//        self = initMat(r, c, 1);
+//    }
+//}
 
 matrix* defMat(float** data, int r, int c){
     matrix* res = initMat(r, c, 0);
@@ -101,7 +101,7 @@ void addMat(matrix* res, matrix* a, matrix* b){
         fprintf( stderr, "Error in addMat. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
         exit(1);
     }else{
-        resetMat(res, a->row, a->column);
+//        resetMat(res, a->row, a->column);
         int i=0, j=0;
         for (i=0; i<a->row; i++){
             for (j=0; j<a->column; j++){
@@ -129,7 +129,7 @@ void addMat_replace(matrix *a, matrix *b){
 };
 
 void addMatVal(matrix* res, matrix *a, float b){
-    resetMat(res, a->row, a->column);
+//    resetMat(res, a->row, a->column);
     int i=0, j=0;
     for (i=0; i<a->row; i++){
         for (j=0; j<a->column; j++){
@@ -155,7 +155,7 @@ void dotMat(matrix* res, matrix *a, matrix *b){
         fprintf( stderr, "Error in dotMat. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
         exit(1);
     }else{
-        resetMat(res, a->row, a->column);
+//        resetMat(res, a->row, a->column);
         int i=0, j=0;
         for (i=0; i<a->row; i++){
             for (j=0; j<a->column; j++){
@@ -206,7 +206,7 @@ void mulMat(matrix* res, matrix *a, matrix *b){
         fprintf( stderr, "Error in mulMat. Matrix size not fit: %d - %d, %d - %d\n", a->row, a->column, b->row, b->column);
         exit(1);
     }else{
-        resetMat(res, a->row, b->column);
+//        resetMat(res, a->row, b->column);
         int i=0, j=0, k=0;
         for (i=0; i<a->row; i++){
             for (j=0; j<b->column; j++){
@@ -221,7 +221,7 @@ void mulMat(matrix* res, matrix *a, matrix *b){
 };
 
 void mulMatVal(matrix* res, matrix *a, float b){
-    resetMat(res, a->row, a->column);
+//    resetMat(res, a->row, a->column);
     int i=0, j=0;
     for (i=0; i<a->row; i++){
         for (j=0; j<a->column; j++){
@@ -260,7 +260,7 @@ float maxMat(matrix* a){
 }
 
 void tranMat(matrix* res, matrix* a){
-    resetMat(res, a->column, a->row);
+//    resetMat(res, a->column, a->row);
     int i=0, j=0;
     for (i=0; i<a->column; i++){
         for (j=0; j<a->row; j++){
@@ -276,7 +276,7 @@ void subMat(matrix* res, matrix* a, int r_start, int height, int c_start, int wi
         fprintf( stderr, "Error in subMat. SubMatrix size out of range: %d - %d, %d %d %d %d\n", a->row, a->column, r_start, height, c_start, width);
         exit(1);
     }else {
-        resetMat(res, height, width);
+//        resetMat(res, height, width);
         int i, j;
         for (i = 0; i < height; i++) {
             for (j = 0; j < width; j++) {
@@ -289,7 +289,7 @@ void subMat(matrix* res, matrix* a, int r_start, int height, int c_start, int wi
 
 void rotate180Mat(matrix* res, matrix* a){
     int i, j;
-    resetMat(res, a->row, a->column);
+//    resetMat(res, a->row, a->column);
 //    for (i=0; i<a->row/2-1; i++){
 //        for (j=0; j<a->column/2-1; j++){
 //            *getMatVal(res, a->row-i-1, a->column-j-1) = *getMatVal(a, i, j);

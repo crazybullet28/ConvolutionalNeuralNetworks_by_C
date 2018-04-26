@@ -26,7 +26,7 @@ void freeMatVal(matrix *self);
 
 void clearMat(matrix *self);
 
-void resetMat(matrix* self, int r, int c);
+//void resetMat(matrix* self, int r, int c);
 
 matrix* defMat(float** data, int r, int c);
 
