@@ -328,3 +328,32 @@ void mat2arr(float* res, matrix* a){
 //    resetMat(res, r, c);
 //
 //};
+
+void sendMat(matrix* sendObj, int toProc, int tag){
+    int r = sendObj->row;
+    int c = sendObj->column;
+    MPI_Send(&sendObj->row, 1, MPI_INT, toProc, tag, MPI_COMM_WORLD);
+    MPI_Send(&sendObj->column, 1, MPI_INT, toProc, tag, MPI_COMM_WORLD);
+    MPI_Send(sendObj->val, r*c, MPI_FLOAT, toProc, tag, MPI_COMM_WORLD);
+}
+
+void recvMat(matrix* recvObj, int fromProc, int tag, MPI_Status status){
+    int r, c;
+    MPI_Recv(&r, 1, MPI_INT, fromProc, tag, MPI_COMM_WORLD, &status);
+    MPI_Recv(&c, 1, MPI_INT, fromProc, tag, MPI_COMM_WORLD, &status);
+    recvObj->row = r;
+    recvObj->column = c;
+    MPI_Recv(recvObj->val, r*c, MPI_FLOAT, fromProc, tag, MPI_COMM_WORLD, &status);
+}
+
+void printMat(matrix* mat){
+    int r=mat->row, c=mat->column;
+    int i, j;
+
+    for (i=0; i<r; i++){
+        for (j=0; j<c; j++){
+            printf("%f ", *getMatVal(mat, i, j));
+        }
+        printf("\n");
+    }
+}

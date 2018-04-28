@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <malloc.h>
 #include <stdlib.h>
+#include "mpi.h"
 
 typedef struct matrix{
     int row;
@@ -68,5 +69,10 @@ void rotate180Mat_replace(matrix* a);
 
 void mat2arr(float* res, matrix* a);
 
+void sendMat(matrix* sendObj, int toProc, int tag);
+
+void recvMat(matrix* recvObj, int fromProc, int tag, MPI_Status status);
+
+void printMat(matrix* mat);
 
 #endif //PARALLEL_PROJ_MATRIX_H
