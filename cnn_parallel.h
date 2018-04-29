@@ -9,6 +9,7 @@
 #include "stdbool.h"
 #include "matrix.h"
 #include "mpi.h"
+#include <math.h>
 
 typedef struct mpi_param{
     int p; // this processor number
@@ -148,7 +149,7 @@ void cnnclear(CNN* cnn);
 
 void trainModel_modelPrallel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, int trainNum, int P, int myRank, MPI_Status status);
 
-float testModel(CNN* cnn, ImgArr inputData, LabelArr outputData, int testNum);
+float testModel(CNN* cnn, ImgArr inputData, LabelArr outputData, int testNum, int P, int myRank, MPI_Status status);
 
 void cnnSaveOutput(CNN *cnn, matrix *inMat, const char *filename);
 

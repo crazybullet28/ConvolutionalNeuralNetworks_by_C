@@ -385,7 +385,7 @@ void doubleRecursiveNNAddup(CNN* cnn, int P, int myRank, MPI_Status status){
     }
     if(myRank<(P-pow(2,D))){
         int toProc = myRank^(1<<D);
-        MPI_Recv(recvObj, cnn->Out->outputNum, MPI_FLOAT, toProc, tag, MPI_COMM_WORLD, status);
+        MPI_Recv(recvObj, cnn->Out->outputNum, MPI_FLOAT, toProc, tag, MPI_COMM_WORLD, &status);
         for (i=0; i<cnn->Out->outputNum; i++){
             cnn->Out->p[i] += recvObj[i];
         }
@@ -393,7 +393,7 @@ void doubleRecursiveNNAddup(CNN* cnn, int P, int myRank, MPI_Status status){
     if(myRank<pow(2,D)){
         for(d=0;d<D;d++){
             int toProc = myRank^(1<<d);
-            MPI_Sendrecv(cnn->Out->p, cnn->Out->outputNum, MPI_FLOAT, toProc, tag, recvObj, cnn->Out->outputNum, MPI_FLOAT, toProc, tag, MPI_COMM_WORLD, status);
+            MPI_Sendrecv(cnn->Out->p, cnn->Out->outputNum, MPI_FLOAT, toProc, tag, recvObj, cnn->Out->outputNum, MPI_FLOAT, toProc, tag, MPI_COMM_WORLD, &status);
 
             for(i=0;i<cnn->Out->outputNum;i++){
                 cnn->Out->p[i] += recvObj[i];
@@ -406,7 +406,7 @@ void doubleRecursiveNNAddup(CNN* cnn, int P, int myRank, MPI_Status status){
     }
     if(myRank>=pow(2,D)){
         int toProc = myRank^(1<<D);
-        MPI_Recv(recvObj, cnn->Out->outputNum, MPI_FLOAT, toProc, tag, MPI_COMM_WORLD, status);
+        MPI_Recv(recvObj, cnn->Out->outputNum, MPI_FLOAT, toProc, tag, MPI_COMM_WORLD, &status);
         for (i=0; i<cnn->Out->outputNum; i++){
             cnn->Out->p[i] += recvObj[i];
         }
@@ -661,13 +661,13 @@ void trainModel_modelPrallel(CNN* cnn, ImgArr inputData, LabelArr outputData, CN
 //    printf("[test] end trainModel\n");
 };
 
-float testModel(CNN* cnn, ImgArr inputData, LabelArr outputData, int testNum){
+float testModel(CNN* cnn, ImgArr inputData, LabelArr outputData, int testNum, int P, int myRank, MPI_Status status){
     int sumOfCorrect = 0;
     float lossSum = 0;
     int n;
     printf("[test]   test   ");
     for (n=0; n<testNum; n++){
-        cnnfw(cnn, inputData->ImgMatPtr[n]);
+        cnnfw(cnn, inputData->ImgMatPtr[n], P, myRank, status);
         int i, maxIndex=0;
         double max=0;
         for (i=0; i<cnn->Out->outputNum; i++){
