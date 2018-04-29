@@ -136,17 +136,17 @@ void doubleRecursiveNNAddup(CNN* cnn, int P, int myRank, MPI_Status status);
 
 float computeLoss(float* outArr, int labely);
 
-void cnnfw(CNN* cnn, matrix* inMat, int P, int myRank);
+void cnnfw(CNN* cnn, matrix* inMat, int P, int myRank, MPI_Status status);
 
 matrix* UpSample(matrix* mat,int multiple_c,int multiple_r,int mapsize);
 
-void cnnbp(CNN* cnn, float* outputData);
+void cnnbp(CNN* cnn, float* outputData, int P, int myRank, MPI_Status status);
 
 void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat);
 
 void cnnclear(CNN* cnn);
 
-void trainModel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, int trainNum);
+void trainModel_modelPrallel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, int trainNum, int P, int myRank, MPI_Status status);
 
 float testModel(CNN* cnn, ImgArr inputData, LabelArr outputData, int testNum);
 

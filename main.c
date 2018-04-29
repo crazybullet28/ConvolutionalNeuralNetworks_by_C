@@ -7,7 +7,7 @@ int main(int argc, char **argv) {
     int test = 1;
 //    test 0: test serial cnn
 //    test 1: test mpi matrix
-//
+//    test 2: test forward
 
     if (test==0){
         srand(100);
@@ -56,6 +56,8 @@ int main(int argc, char **argv) {
             }
             sendMat(a, 0, tag);
         }
+
+
 
         end =MPI_Wtime();
         MPI_Finalize();

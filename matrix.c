@@ -84,6 +84,17 @@ matrix* copyMat(matrix* in){
     return res;
 }
 
+void copyMat2exist(matrix* res, matrix* in){
+    if (res->row != in->row || res->column != in->column){
+        fflush(stdout);
+        fprintf(stderr, "Error in copyMat2exist. Size not fit! %d - %d, %d - %d\n", res->row, in->row, res->column, in->column);
+    }
+    int i;
+    for (i=0; i<in->row*in->column; i++){
+        res->val[i] = in->val[i];
+    }
+}
+
 void resizeMat(matrix* self, int r, int c){
     if (r*c != self->row*self->column){
         fflush(stdout);
@@ -344,6 +355,15 @@ void recvMat(matrix* recvObj, int fromProc, int tag, MPI_Status status){
     recvObj->row = r;
     recvObj->column = c;
     MPI_Recv(recvObj->val, r*c, MPI_FLOAT, fromProc, tag, MPI_COMM_WORLD, &status);
+}
+
+void sendrecvMat(matrix* sendObj, int toProc, int sendtag, matrix* recvObj, int fromProc, int recvtag, MPI_Status status){
+    int r, c;
+    MPI_Sendrecv(&sendObj->row, 1, MPI_INT, toProc, sendtag, &r, 1, MPI_INT, fromProc, recvtag, MPI_COMM_WORLD, &status);
+    MPI_Sendrecv(&sendObj->column, 1, MPI_INT, toProc, sendtag, &c, 1, MPI_INT, fromProc, recvtag, MPI_COMM_WORLD, &status);
+    recvObj->row = r;
+    recvObj->column = c;
+    MPI_Sendrecv(sendObj->val, sendObj->row*sendObj->column, MPI_FLOAT, toProc, sendtag, recvObj->val, r*c, MPI_FLOAT, fromProc, recvtag, MPI_COMM_WORLD, &status);
 }
 
 void printMat(matrix* mat){

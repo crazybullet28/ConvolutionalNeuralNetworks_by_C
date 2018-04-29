@@ -33,6 +33,8 @@ matrix* defMat(float** data, int r, int c);
 
 matrix* copyMat(matrix* in);
 
+void copyMat2exist(matrix* res, matrix* in);
+
 void resizeMat(matrix* self, int r, int c);
 
 void addMat(matrix* res, matrix* a, matrix* b);
@@ -72,6 +74,8 @@ void mat2arr(float* res, matrix* a);
 void sendMat(matrix* sendObj, int toProc, int tag);
 
 void recvMat(matrix* recvObj, int fromProc, int tag, MPI_Status status);
+
+void sendrecvMat(matrix* sendObj, int toProc, int sendtag, matrix* recvObj, int fromProc, int recvtag, MPI_Status status);
 
 void printMat(matrix* mat);
 
