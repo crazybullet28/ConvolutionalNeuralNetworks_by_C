@@ -8,6 +8,7 @@
 #include "minst.h"
 #include "stdbool.h"
 #include "matrix.h"
+#include <math.h>
 
 typedef struct convolutional_layer{
     int inputWidth;
