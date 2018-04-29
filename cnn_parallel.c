@@ -157,12 +157,13 @@ OutLayer* initOutLayer(int inputNum,int outputNum){
 };
 
 void cnn_setup(CNN* cnn, int inputHeight, int inputWidth, int outNum, int P, int myRank){
+//    printf("[test] start cnn_setup\n");
 //    local outChannel saved for C1
     int I1 = (6+P-myRank-1)/P;
 //    local outChannel saved for C3
     int I3 = 16;
 //    local outChannel saved for Out (need to multiply image size)
-    int I5 = (16+P-myRank-1)/P;
+    int I5 = (I3+P-myRank-1)/P;
 
     int start;
 
@@ -170,7 +171,6 @@ void cnn_setup(CNN* cnn, int inputHeight, int inputWidth, int outNum, int P, int
     cnn->I3 = I3;
     cnn->I5 = I5;
 
-//    printf("[test] start cnn_setup\n");
     int inH = inputHeight;
     int inW = inputWidth;
     cnn->C1 = initCovLayer(inH, inW, 5, 1, I1, 2);       // 28*28 -> 32*32 -> 28*28          // 24*24
@@ -184,7 +184,15 @@ void cnn_setup(CNN* cnn, int inputHeight, int inputWidth, int outNum, int P, int
     inH = cnn->C3->outputHeight;
     inW = cnn->C3->outputWidth;
 //      [?]------------------------------------------------        for pooling layer, which input should it start pooling
-    start = ((15+P)+(16+P-myRank))/(2*P);
+    int L = I3/P;
+    int R = I3%P;
+//    if (myRank<R){
+//        start = myRank* L+myRank;
+//    }else{
+//        start = myRank* L+R;
+//    }
+    start = (myRank* L) + ((myRank<R)?myRank:R);
+//    printf("[test] S4 p%d:    L %d, R %d, min %d,  start %d\n", myRank, L, R, (myRank<R)?myRank:R, start);
 //      [?]------------------------------------------------
     cnn->S4 = initPoolLayer(inH, inW, 2, I3, I3, 1, start);    // 10*10 -> 5*5                     // 4*4
     inH = cnn->S4->outputHeight;
@@ -192,7 +200,7 @@ void cnn_setup(CNN* cnn, int inputHeight, int inputWidth, int outNum, int P, int
     cnn->Out = initOutLayer(inH*inW * I5, outNum);        // 400 -> 10                      // 192 -> 10
 
     cnn->e=(float *)malloc(cnn->Out->outputNum*sizeof(float));
-//    printf("[test] end trainModel\n");
+//    printf("[test] end cnn_setup\n");
 };
 
 void convolution_once(matrix *v, matrix *inMat, matrix *map, int outH, int outW, int padding){
@@ -264,12 +272,12 @@ void convolution(CovLayer* C, matrix** inMat){
             addMat_replace(C->v[i], tmpv);
 //            clearMat(tmpv);       // not necessary
         }
-        for (k=0; k<C->outputHeight; k++){
-            for (l=0; l<C->outputWidth; l++){
-//                *getMatVal(C->v[i], k, l) += C->bias[i];
-                *getMatVal(C->y[i], k, l) = activate_sigmoid(*getMatVal(C->v[i], k, l)+C->bias[i]);
-            }
-        }
+//        for (k=0; k<C->outputHeight; k++){
+//            for (l=0; l<C->outputWidth; l++){
+////                *getMatVal(C->v[i], k, l) += C->bias[i];
+//                *getMatVal(C->y[i], k, l) = activate_sigmoid(*getMatVal(C->v[i], k, l)+C->bias[i]);
+//            }
+//        }
     }
     freeMat(tmpv);
 };
@@ -328,7 +336,7 @@ void nnForward(OutLayer* O, float* inArr){
         for (j=0; j<O->inputNum; j++){
             O->v[i] += inArr[j] * *getMatVal(O->weight, j, i);
         }
-        O->p[i]=activate_sigmoid(O->v[i]+O->bias[i]);
+//        O->p[i]=activate_sigmoid(O->v[i]+O->bias[i]);
     }
 };
 
@@ -381,34 +389,34 @@ void doubleRecursiveNNAddup(CNN* cnn, int P, int myRank, MPI_Status status){
     int D = (int)(log(P)/log(2));
     if(myRank>=pow(2,D)){
         int toProc = myRank^(1<<D);
-        MPI_Send(cnn->Out->p, cnn->Out->outputNum, MPI_FLOAT, toProc, tag, MPI_COMM_WORLD);
+        MPI_Send(cnn->Out->v, cnn->Out->outputNum, MPI_FLOAT, toProc, tag, MPI_COMM_WORLD);
     }
     if(myRank<(P-pow(2,D))){
         int toProc = myRank^(1<<D);
         MPI_Recv(recvObj, cnn->Out->outputNum, MPI_FLOAT, toProc, tag, MPI_COMM_WORLD, &status);
         for (i=0; i<cnn->Out->outputNum; i++){
-            cnn->Out->p[i] += recvObj[i];
+            cnn->Out->v[i] += recvObj[i];
         }
     }
     if(myRank<pow(2,D)){
         for(d=0;d<D;d++){
             int toProc = myRank^(1<<d);
-            MPI_Sendrecv(cnn->Out->p, cnn->Out->outputNum, MPI_FLOAT, toProc, tag, recvObj, cnn->Out->outputNum, MPI_FLOAT, toProc, tag, MPI_COMM_WORLD, &status);
+            MPI_Sendrecv(cnn->Out->v, cnn->Out->outputNum, MPI_FLOAT, toProc, tag, recvObj, cnn->Out->outputNum, MPI_FLOAT, toProc, tag, MPI_COMM_WORLD, &status);
 
             for(i=0;i<cnn->Out->outputNum;i++){
-                cnn->Out->p[i] += recvObj[i];
+                cnn->Out->v[i] += recvObj[i];
             }
         }
     }
     if(myRank<(P-pow(2,D))){
         int toProc = myRank^(1<<D);
-        MPI_Send(cnn->Out->p, cnn->Out->outputNum, MPI_FLOAT, toProc, tag, MPI_COMM_WORLD);
+        MPI_Send(cnn->Out->v, cnn->Out->outputNum, MPI_FLOAT, toProc, tag, MPI_COMM_WORLD);
     }
     if(myRank>=pow(2,D)){
         int toProc = myRank^(1<<D);
         MPI_Recv(recvObj, cnn->Out->outputNum, MPI_FLOAT, toProc, tag, MPI_COMM_WORLD, &status);
         for (i=0; i<cnn->Out->outputNum; i++){
-            cnn->Out->p[i] += recvObj[i];
+            cnn->Out->v[i] = recvObj[i];
         }
     }
 };
@@ -419,28 +427,53 @@ float computeLoss(float* outArr, int labely){
 
 void cnnfw(CNN* cnn, matrix* inMat, int P, int myRank, MPI_Status status){       // only one matrix a time.           outArr has already been malloc
 //    printf("[test] start cnnfw\n");
+    int i,j,k,l;
     matrix** input = (matrix**)malloc(sizeof(matrix*));
     input[0] = copyMat(inMat);
     convolution(cnn->C1, input);
-    pooling(cnn->S2, cnn->C1->y, 6);
+    for (i=0; i<cnn->C1->outChannels; i++){
+        for (k=0; k<cnn->C1->outputHeight; k++){
+            for (l=0; l<cnn->C1->outputWidth; l++){
+//                *getMatVal(C->v[i], k, l) += C->bias[i];
+                *getMatVal(cnn->C1->y[i], k, l) = activate_sigmoid(*getMatVal(cnn->C1->v[i], k, l)+cnn->C1->bias[i]);
+            }
+        }
+    }
+//    printf("[test] C1 finished\n");
+    pooling(cnn->S2, cnn->C1->y, cnn->S2->inChannels);
+//    printf("[test] S2 finished\n");
     convolution(cnn->C3, cnn->S2->y);
-
+//    printf("[test] C3 finished\n");
     doubleRecursiveC3Addup(cnn, P, myRank, status);
+    for (i=0; i<cnn->C3->outChannels; i++){
+        for (k=0; k<cnn->C3->outputHeight; k++){
+            for (l=0; l<cnn->C3->outputWidth; l++){
+//                *getMatVal(C->v[i], k, l) += C->bias[i];
+                *getMatVal(cnn->C3->y[i], k, l) = activate_sigmoid(*getMatVal(cnn->C3->v[i], k, l)+cnn->C3->bias[i]);
+            }
+        }
+    }
+//    printf("[test] doubleRecursiveC3Addup finished\n");
 
     pooling(cnn->S4, cnn->C3->y, cnn->I5);
-
+//    printf("[test] S4 finished\n");
 
     float nn_input[cnn->Out->inputNum];
-    int i, j;
     int tmpLength = cnn->S4->outputWidth * cnn->S4->outputHeight;
     for (i=0; i<cnn->I5; i++){
         for (j=0; j<tmpLength; j++){
             nn_input[i*tmpLength+j] = cnn->S4->y[i+cnn->S4->start]->val[j];
         }
     }
+//    printf("[test] Out start\n");
     nnForward(cnn->Out, nn_input);
-
+//    printf("[test] Out finished\n");
     doubleRecursiveNNAddup(cnn, P, myRank, status);
+    for(i=0;i<cnn->Out->outputNum;i++){
+        cnn->Out->p[i]=activate_sigmoid(cnn->Out->v[i]+cnn->Out->bias[i]);
+    }
+
+//    printf("[test] doubleRecursiveNNAddup finished\n");
 
     freeMat(input[0]);
     free(input);
@@ -462,8 +495,48 @@ matrix* UpSample(matrix* mat,int multiple_c,int multiple_r,int mapsize){
     return res;
 }
 
-void cnnbp(CNN* cnn, float* outputData, int P, int myRank, MPI_Status status){
-//    printf("[test] start cnnbw\n");
+void doubleRecursiveC3bp(CNN* cnn, int P, int myRank, MPI_Status status){
+    matrix* recvObj = initMat(cnn->C3->outputHeight,cnn->C3->outputWidth,1);
+    int tag = 1;
+    int d;
+    int i;
+    int D = (int)(log(P)/log(2));
+    if(myRank>=pow(2,D)){
+        int toProc = myRank^(1<<D);
+        for(i=0;i<cnn->C3->outChannels;i++)
+            sendMat(cnn->C3->d[i],toProc,tag);
+    }
+    if(myRank<(P-pow(2,D))){
+        int toProc = myRank^(1<<D);
+        for(i=0;i<cnn->C3->outChannels;i++){
+            recvMat(recvObj,toProc,tag,status);
+            addMat_replace(cnn->C3->d[i],recvObj);
+        }
+    }
+    if(myRank<pow(2,D)){
+        for(d=0;d<D;d++){
+            int toProc = myRank^(1<<d);
+            for(i=0;i<cnn->C3->outChannels;i++){
+                sendrecvMat(cnn->C3->d[i],toProc, tag, recvObj, toProc, tag, status);
+                addMat_replace(cnn->C3->d[i],recvObj);
+            }
+        }
+    }
+    if(myRank<(P-pow(2,D))){
+        int toProc = myRank^(1<<D);
+        for(i=0;i<cnn->C3->outChannels;i++)
+            sendMat(cnn->C3->d[i],toProc,tag);
+    }
+    if(myRank>=pow(2,D)){
+        int toProc = myRank^(1<<D);
+        for(i=0;i<cnn->C3->outChannels;i++){
+            recvMat(recvObj,toProc,tag,status);
+            copyMat2exist(cnn->C3->d[i],recvObj);
+        }
+    }
+}
+
+void cnnbp(CNN* cnn,float* outputData,int P, int myRank, MPI_Status status){
     int i,j,c,r; // 将误差保存到网络中
     for(i=0;i<cnn->Out->outputNum;i++)
         cnn->e[i]=cnn->Out->p[i]-outputData[i];
@@ -472,22 +545,19 @@ void cnnbp(CNN* cnn, float* outputData, int P, int myRank, MPI_Status status){
     for(i=0;i<cnn->Out->outputNum;i++)
         cnn->Out->d[i]=cnn->e[i] * sigmoid_derivation(cnn->Out->p[i]);
 
-    // S4层，传递到S4层的误差
-    // 这里没有激活函数
+    //S4 Layer
     int row = cnn->S4->inputHeight/cnn->S4->mapSize;
     int col = cnn->S4->inputWidth/cnn->S4->mapSize;
-    for(i=0;i<cnn->S4->outChannels;i++)
+    for(i=cnn->S4->start;i<cnn->S4->start+cnn->I5;i++)
         for(r=0;r<row;r++)
             for(c=0;c<col;c++)
-                for(j=0;j<cnn->Out->outputNum;j++){
-                    int wInt=i*col*row+r*col+c;
-                    *getMatVal(cnn->S4->d[i], r, c) = *getMatVal(cnn->S4->d[i],r,c)+cnn->Out->d[j]*(*getMatVal(cnn->Out->weight,wInt,j));
+                for(j=0;j<cnn->Out->outputNum;j++) {
+                    int wInt = (i-cnn->S4->start) * col * row + r * col + c;
+                    *getMatVal(cnn->S4->d[i], r, c) =
+                            *getMatVal(cnn->S4->d[i], r, c) + cnn->Out->d[j] * (*getMatVal(cnn->Out->weight, wInt, j));
                 }
-
-    // C3层
-    // 由S4层传递的各反向误差,这里只是在S4的梯度上扩充一倍
-    // 这里的Pooling是求平均，
-    for(i=0;i<cnn->C3->outChannels;i++){
+    //C3
+    for(i=cnn->S4->start;i<cnn->S4->start+cnn->I5;i++){
         matrix* C3e = UpSample(cnn->S4->d[i],cnn->S4->inputWidth/cnn->S4->mapSize,cnn->S4->inputHeight/cnn->S4->mapSize,cnn->S4->mapSize);
         for(r=0;r<cnn->S4->inputHeight;r++)
             for(c=0;c<cnn->S4->inputWidth;c++)
@@ -495,6 +565,7 @@ void cnnbp(CNN* cnn, float* outputData, int P, int myRank, MPI_Status status){
         freeMat(C3e);
     }
 
+    doubleRecursiveC3bp(cnn, P, myRank, status);
     // S2层，S2层没有激活函数，这里只有卷积层有激活函数部分
     // 由卷积层传递给采样层的误差梯度，这里卷积层共有6*12个卷积模板
     for(i=0;i<cnn->S2->outChannels;i++){
@@ -517,7 +588,6 @@ void cnnbp(CNN* cnn, float* outputData, int P, int myRank, MPI_Status status){
                 *getMatVal(cnn->C1->d[i],r,c)=*getMatVal(C1e,r,c)*sigmoid_derivation(*getMatVal(cnn->C1->y[i],r,c));
         freeMat(C1e);
     }
-//    printf("[test] end cnnbw\n");
 }
 
 
@@ -559,13 +629,13 @@ void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat){
     }
 
     //Output layer
-    float* Out_input=(float*)malloc((cnn->Out->inputNum)*sizeof(float));
+    float* Out_input=(float*)malloc((5*5*cnn->I5)*sizeof(float));
     int row = cnn->S4->inputHeight/cnn->S4->mapSize;
     int col = cnn->S4->inputWidth/cnn->S4->mapSize;
-    for(i=0;i<cnn->S4->outChannels;i++)
+    for(i=cnn->S4->start;i<cnn->S4->start+cnn->I5;i++)
         for(r=0;r<row;r++)
             for(c=0;c<col;c++)
-                Out_input[i*row*col+r*col+c] = *getMatVal(cnn->S4->y[i],r,c);
+                Out_input[(i-cnn->S4->start)*row*col+r*col+c] = *getMatVal(cnn->S4->y[i],r,c);
     for(j=0;j<cnn->Out->outputNum;j++){
         for(i=0;i<cnn->Out->inputNum;i++)
             *getMatVal(cnn->Out->weight,i,j) = *getMatVal(cnn->Out->weight,i,j) - opts.eta*cnn->Out->d[j]*Out_input[i];
@@ -617,16 +687,18 @@ void trainModel_modelPrallel(CNN* cnn, ImgArr inputData, LabelArr outputData, CN
         int n;
         for (n=0; n<trainNum; n++){
 
-//            char saveFilePath[50];
-//            sprintf(saveFilePath, "data/weight/cnnWeight_%d_%d.txt", epoch, n);
+            char saveFilePath[50];
+//            sprintf(saveFilePath, "cnnWeight_%d_%d.txt", epoch, n);
 //            cnnSaveWeight(cnn, saveFilePath);
 
             cnnfw(cnn, inputData->ImgMatPtr[n], P, myRank, status);
             int kk;
+            printf("p:%d   ", myRank);
             for (kk=0; kk<cnn->Out->outputNum; kk++){
                 printf("%.2f ", cnn->Out->p[kk]);
             }
             printf("\n");
+            printf("p:%d   ", myRank);
             for (kk=0; kk<cnn->Out->outputNum; kk++){
                 printf("%.2f ", outputData->LabelPtr[n].LabelData[kk]);
             }
@@ -636,8 +708,8 @@ void trainModel_modelPrallel(CNN* cnn, ImgArr inputData, LabelArr outputData, CN
 //            printf("[test] inputData->ImgMatPtr[%d] - %d*%d\n", n, inputData->ImgMatPtr[n]->row, inputData->ImgMatPtr[n]->column);
             gradient_update(cnn, opts, inputData->ImgMatPtr[n]);
 
-//            sprintf(saveFilePath, "data/output/cnnOutput_%d_%d.txt", epoch, n);
-//            cnnSaveOutput(cnn, inputData->ImgMatPtr[n], saveFilePath);
+            sprintf(saveFilePath, "cnnOutput_p%d_%d_%d.txt", myRank, epoch, n);
+            cnnSaveOutput(cnn, inputData->ImgMatPtr[n], saveFilePath);
 
 //            sprintf(saveFilePath, "data/d/cnnD_%d_%d.txt", epoch, n);
 //            cnnSaveD(cnn, saveFilePath);
@@ -655,7 +727,7 @@ void trainModel_modelPrallel(CNN* cnn, ImgArr inputData, LabelArr outputData, CN
             else
                 cnn->L[n]=cnn->L[n-1]*0.99+0.01*l/(float)2.0;
 //            l = computeLoss(cnn->Out->p, outputData->LabelPtr[n].Labely);
-            printf("\"Epoch %d,        n = %d,     loss = %f\n", epoch, n, cnn->L[n]);
+            printf("p: %d ---- epoch = %d,     n = %d,     loss = %f\n", myRank, epoch, n, cnn->L[n]);
         }
     }
 //    printf("[test] end trainModel\n");
@@ -702,30 +774,30 @@ void cnnSaveOutput(CNN *cnn, matrix *inMat, const char *filename){
 
 
     // C1
-    fprintf(fp, "C1 output:\n");
-    for(i=0;i<cnn->C1->outChannels;i++){
-        for(j=0;j<cnn->C1->outputHeight;j++){
-            for(r=0;r<cnn->C1->outputWidth;r++){
-                fprintf(fp, "%.4f  ", *getMatVal(cnn->C1->y[i], j, r));
-            }
-            fprintf(fp, "\n");
-        }
-        fprintf(fp, "\n");
-    }
-    fprintf(fp, "\n--------------------\n");
+//    fprintf(fp, "C1 output:\n");
+//    for(i=0;i<cnn->C1->outChannels;i++){
+//        for(j=0;j<cnn->C1->outputHeight;j++){
+//            for(r=0;r<cnn->C1->outputWidth;r++){
+//                fprintf(fp, "%.4f  ", *getMatVal(cnn->C1->y[i], j, r));
+//            }
+//            fprintf(fp, "\n");
+//        }
+//        fprintf(fp, "\n");
+//    }
+//    fprintf(fp, "\n--------------------\n");
 
     // S2
-    fprintf(fp, "S2 output:\n");
-    for(i=0;i<cnn->S2->outChannels;i++){
-        for(j=0;j<cnn->S2->outputHeight;j++){
-            for(r=0;r<cnn->S2->outputWidth;r++){
-                fprintf(fp, "%.4f  ", *getMatVal(cnn->S2->y[i], j, r));
-            }
-            fprintf(fp, "\n");
-        }
-        fprintf(fp, "\n");
-    }
-    fprintf(fp, "\n--------------------\n");
+//    fprintf(fp, "S2 output:\n");
+//    for(i=0;i<cnn->S2->outChannels;i++){
+//        for(j=0;j<cnn->S2->outputHeight;j++){
+//            for(r=0;r<cnn->S2->outputWidth;r++){
+//                fprintf(fp, "%.4f  ", *getMatVal(cnn->S2->y[i], j, r));
+//            }
+//            fprintf(fp, "\n");
+//        }
+//        fprintf(fp, "\n");
+//    }
+//    fprintf(fp, "\n--------------------\n");
 
     // C3
     fprintf(fp, "C3 output:\n");
@@ -741,17 +813,17 @@ void cnnSaveOutput(CNN *cnn, matrix *inMat, const char *filename){
     fprintf(fp, "\n--------------------\n");
 
     // S4
-    fprintf(fp, "S4 output:\n");
-    for(i=0;i<cnn->S4->outChannels;i++){
-        for(j=0;j<cnn->S4->outputHeight;j++){
-            for(r=0;r<cnn->S4->outputWidth;r++){
-                fprintf(fp, "%.4f  ", *getMatVal(cnn->S4->y[i], j, r));
-            }
-            fprintf(fp, "\n");
-        }
-        fprintf(fp, "\n");
-    }
-    fprintf(fp, "\n--------------------\n");
+//    fprintf(fp, "S4 output:\n");
+//    for(i=0;i<cnn->S4->outChannels;i++){
+//        for(j=0;j<cnn->S4->outputHeight;j++){
+//            for(r=0;r<cnn->S4->outputWidth;r++){
+//                fprintf(fp, "%.4f  ", *getMatVal(cnn->S4->y[i], j, r));
+//            }
+//            fprintf(fp, "\n");
+//        }
+//        fprintf(fp, "\n");
+//    }
+//    fprintf(fp, "\n--------------------\n");
 
     // Out
     fprintf(fp, "Out output y:\n");
