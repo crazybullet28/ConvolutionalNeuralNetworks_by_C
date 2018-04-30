@@ -349,34 +349,34 @@ void doubleRecursiveC3Addup(CNN* cnn, int P, int myRank, MPI_Status status){
     if(myRank>=pow(2,D)){
         int toProc = myRank^(1<<D);
         for(i=0;i<cnn->C3->outChannels;i++)
-            sendMat(cnn->C3->y[i],toProc,tag);
+            sendMat(cnn->C3->v[i],toProc,tag);
     }
     if(myRank<(P-pow(2,D))){
         int toProc = myRank^(1<<D);
         for(i=0;i<cnn->C3->outChannels;i++){
             recvMat(recvObj,toProc,tag,status);
-            addMat_replace(cnn->C3->y[i],recvObj);
+            addMat_replace(cnn->C3->v[i],recvObj);
         }
     }
     if(myRank<pow(2,D)){
         for(d=0;d<D;d++){
             int toProc = myRank^(1<<d);
             for(i=0;i<cnn->C3->outChannels;i++){
-                sendrecvMat(cnn->C3->y[i],toProc, tag, recvObj, toProc, tag, status);
-                addMat_replace(cnn->C3->y[i],recvObj);
+                sendrecvMat(cnn->C3->v[i],toProc, tag, recvObj, toProc, tag, status);
+                addMat_replace(cnn->C3->v[i],recvObj);
             }
         }
     }
     if(myRank<(P-pow(2,D))){
         int toProc = myRank^(1<<D);
         for(i=0;i<cnn->C3->outChannels;i++)
-            sendMat(cnn->C3->y[i],toProc,tag);
+            sendMat(cnn->C3->v[i],toProc,tag);
     }
     if(myRank>=pow(2,D)){
         int toProc = myRank^(1<<D);
         for(i=0;i<cnn->C3->outChannels;i++){
             recvMat(recvObj,toProc,tag,status);
-            copyMat2exist(cnn->C3->y[i],recvObj);
+            copyMat2exist(cnn->C3->v[i],recvObj);
         }
     }
 }
@@ -687,7 +687,7 @@ void trainModel_modelPrallel(CNN* cnn, ImgArr inputData, LabelArr outputData, CN
         int n;
         for (n=0; n<trainNum; n++){
 
-            char saveFilePath[50];
+//            char saveFilePath[50];
 //            sprintf(saveFilePath, "cnnWeight_%d_%d.txt", epoch, n);
 //            cnnSaveWeight(cnn, saveFilePath);
 
@@ -708,8 +708,8 @@ void trainModel_modelPrallel(CNN* cnn, ImgArr inputData, LabelArr outputData, CN
 //            printf("[test] inputData->ImgMatPtr[%d] - %d*%d\n", n, inputData->ImgMatPtr[n]->row, inputData->ImgMatPtr[n]->column);
             gradient_update(cnn, opts, inputData->ImgMatPtr[n]);
 
-            sprintf(saveFilePath, "cnnOutput_p%d_%d_%d.txt", myRank, epoch, n);
-            cnnSaveOutput(cnn, inputData->ImgMatPtr[n], saveFilePath);
+//            sprintf(saveFilePath, "cnnOutput_p%d_%d_%d.txt", myRank, epoch, n);
+//            cnnSaveOutput(cnn, inputData->ImgMatPtr[n], saveFilePath);
 
 //            sprintf(saveFilePath, "data/d/cnnD_%d_%d.txt", epoch, n);
 //            cnnSaveD(cnn, saveFilePath);
