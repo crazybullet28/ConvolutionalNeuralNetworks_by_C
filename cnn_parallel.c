@@ -55,6 +55,7 @@ CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChann
 
     covLayer->mapWeight = (matrix***) malloc(inChannels* sizeof(matrix**));
     covLayer->dmapWeight = (matrix***) malloc(inChannels*sizeof(matrix**));
+    covLayer->dmapWeight_save = (matrix***) malloc(inChannels*sizeof(matrix**));
 
     int i, j, k, l;
 
@@ -63,9 +64,11 @@ CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChann
     for (i=0; i<inChannels; i++){
         covLayer->mapWeight[i] = (matrix**) malloc(outChannels* sizeof(matrix*));
         covLayer->dmapWeight[i] = (matrix**) malloc(outChannels* sizeof(matrix*));
+        covLayer->dmapWeight_save[i] = (matrix**) malloc(outChannels* sizeof(matrix*));
         for (j=0; j<outChannels; j++){
             covLayer->mapWeight[i][j] = initMat(mapSize, mapSize, 0);
             covLayer->dmapWeight[i][j] = initMat(mapSize, mapSize, 0);
+            covLayer->dmapWeight_save[i][j] = initMat(mapSize, mapSize, 0);
             for (k=0; k<mapSize; k++){
                 for (l=0; l<mapSize; l++){
 //                    covLayer->mapData[i][j][k][l] = (rand()/((float)RAND_MAX+1)-0.5)*2 * sqrt(6.0/(mapSize*mapSize*inChannels+outChannels));             // xavier initialize
@@ -77,8 +80,10 @@ CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChann
     }
 
     covLayer->bias = (float*) malloc(outChannels*sizeof(float));
+    covLayer->dBias_save = (float*) malloc(outChannels*sizeof(float));
     for (i=0; i<outChannels; i++){
         covLayer->bias[i] = 0;
+        covLayer->dBias_save[i] = 0;
     }
 
     int outW=inputWidth-mapSize+1+2*paddingForward;
@@ -132,6 +137,7 @@ OutLayer* initOutLayer(int inputNum,int outputNum){
     outLayer->outputNum = outputNum;
 
     outLayer->d = (float*) malloc(outputNum*sizeof(float));
+    outLayer->dBias_save = (float*) malloc(outputNum*sizeof(float));
     outLayer->v = (float*) malloc(outputNum*sizeof(float));
 //    outLayer->y = (float*) malloc(outputNum*sizeof(float));
     outLayer->p = (float*) malloc(outputNum*sizeof(float));
@@ -139,6 +145,7 @@ OutLayer* initOutLayer(int inputNum,int outputNum){
     int i,j;
     outLayer->bias = (float*) malloc(outputNum*sizeof(float));
     outLayer->weight = initMat(inputNum, outputNum, 0);
+    outLayer->dweight_save = initMat(inputNum, outputNum, 0);
 //    outLayer->dweight = initMat(inputNum, outputNum, 0);
 //    srand(100);
     for (i=0; i<inputNum; i++){
@@ -644,6 +651,113 @@ void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat){
     free(Out_input);
 }
 
+void gradient_save(CNN* cnn, CNNOpts opts, matrix* inMat){
+    int i,j,r,c;
+    int batch = opts.batch;
+    //C1
+    for(i=0;i<cnn->C1->outChannels;i++){
+        for(j=0;j<cnn->C1->inChannels;j++){
+            matrix* rot_input = initMat(inMat->row,inMat->column,1);
+            rotate180Mat(rot_input,inMat);
+            convolution_once(cnn->C1->dmapWeight[j][i], rot_input, cnn->C1->d[i], cnn->C1->mapSize, cnn->C1->mapSize,
+                             cnn->C1->paddingForward);
+            matrix* minus_weight = initMat(cnn->C1->mapSize,cnn->C1->mapSize,1);
+            mulMatVal(minus_weight, cnn->C1->dmapWeight[j][i], -1*opts.eta/batch);
+            addMat_replace(cnn->C1->dmapWeight_save[j][i],minus_weight);
+
+            freeMat(rot_input);
+            freeMat(minus_weight);
+        }
+        cnn->C1->dBias_save[i] += - opts.eta*sumMat(cnn->C1->d[i])/batch;
+    }
+
+    //C3
+    for(i=0;i<cnn->C3->outChannels;i++){
+        for(j=0;j<cnn->C3->inChannels;j++){
+            matrix* rot_input = initMat(cnn->S2->outputHeight,cnn->S2->outputWidth,1);
+            rotate180Mat(rot_input,cnn->S2->y[j]);
+            convolution_once(cnn->C3->dmapWeight[j][i], rot_input, cnn->C3->d[i], cnn->C3->mapSize, cnn->C3->mapSize,
+                             cnn->C3->paddingForward);
+            matrix* minus_weight = initMat(cnn->C3->mapSize,cnn->C3->mapSize,1);
+            mulMatVal(minus_weight, cnn->C3->dmapWeight[j][i], -1*opts.eta/batch);
+            addMat_replace(cnn->C3->dmapWeight_save[j][i],minus_weight);
+
+            freeMat(rot_input);
+            freeMat(minus_weight);
+        }
+        cnn->C3->dBias_save[i] += c- opts.eta*sumMat(cnn->C3->d[i])/batch;
+    }
+
+    //Output layer
+    float* Out_input=(float*)malloc((5*5*cnn->I5)*sizeof(float));
+    int row = cnn->S4->inputHeight/cnn->S4->mapSize;
+    int col = cnn->S4->inputWidth/cnn->S4->mapSize;
+    for(i=cnn->S4->start;i<cnn->S4->start+cnn->I5;i++)
+        for(r=0;r<row;r++)
+            for(c=0;c<col;c++)
+                Out_input[(i-cnn->S4->start)*row*col+r*col+c] = *getMatVal(cnn->S4->y[i],r,c);
+    for(j=0;j<cnn->Out->outputNum;j++){
+        for(i=0;i<cnn->Out->inputNum;i++)
+            *getMatVal(cnn->Out->dweight_save,i,j) += - opts.eta*cnn->Out->d[j]*Out_input[i]/batch;
+        cnn->Out->dBias_save[j] += -opts.eta*cnn->Out->d[j]/batch;
+    }
+    free(Out_input);
+}
+
+void gradient_update_Batch(CNN* cnn){
+//    printf("[test] start gradient_update_Batch\n");
+    int i,j,r,c;
+
+    //C1
+    for(i=0;i<cnn->C1->outChannels;i++){
+        for(j=0;j<cnn->C1->inChannels;j++){
+            addMat_replace(cnn->C1->mapWeight[j][i], cnn->C1->dmapWeight_save[j][i]);
+        }
+        cnn->C1->bias[i] = cnn->C1->bias[i] + cnn->C1->dBias_save[i];
+    }
+
+    //C3
+    for(i=0;i<cnn->C3->outChannels;i++){
+        for(j=0;j<cnn->C3->inChannels;j++){
+            addMat_replace(cnn->C3->mapWeight[j][i], cnn->C3->dmapWeight_save[j][i]);
+        }
+        cnn->C3->bias[i] = cnn->C3->bias[i] + cnn->C3->dBias_save[i];
+    }
+
+    //Output layer
+    addMat_replace(cnn->Out->weight, cnn->Out->dweight_save);
+    for(j=0;j<cnn->Out->outputNum;j++){
+        cnn->Out->bias[j] = cnn->Out->bias[j] + cnn->Out->dBias_save[j];
+    }
+//    printf("[test] end gradient_update_Batch\n");
+};
+
+void cnnclear_Save(CNN* cnn){
+    int i, j, k;
+
+    //C1
+    for(i=0;i<cnn->C1->outChannels;i++) {
+        for (j = 0; j < cnn->C1->inChannels; j++) {
+            clearMat(cnn->C1->dmapWeight_save[j][i]);
+        }
+        cnn->C1->dBias_save[i] = 0;
+    }
+
+    //C3
+    for(i=0;i<cnn->C3->outChannels;i++) {
+        for (j = 0; j < cnn->C3->inChannels; j++) {
+            clearMat(cnn->C3->dmapWeight_save[j][i]);
+        }
+        cnn->C3->dBias_save[i] = 0;
+    }
+
+    //Out
+    clearMat(cnn->Out->dweight_save);
+    for(j=0;j<cnn->Out->outputNum;j++){
+        cnn->Out->dBias_save[j] = 0;
+    }
+}
+
 void cnnclear(CNN* cnn){
     // Clear local error and output
     int j,c,r;
@@ -732,6 +846,70 @@ void trainModel_modelPrallel(CNN* cnn, ImgArr inputData, LabelArr outputData, CN
     }
 //    printf("[test] end trainModel\n");
 };
+
+void trainModel_batch(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, int trainNum, int P, int myRank, MPI_Status status){           // may be slow?
+//    printf("[test] start trainModel\n");
+//    cnn->L=(float *)malloc(opts.numepochs*sizeof(float));
+    cnn->L=(float*)malloc(trainNum*sizeof(float));
+    int epoch;
+    int batch = opts.batch;
+    for (epoch=0; epoch<opts.numepochs; epoch++){
+        printf("Epoch %d \n", epoch);
+        int n;
+        for (n=0; n<trainNum; n++){
+
+//            char saveFilePath[50];
+//            sprintf(saveFilePath, "cnnWeight_%d_%d.txt", epoch, n);
+//            cnnSaveWeight(cnn, saveFilePath);
+
+            cnnfw(cnn, inputData->ImgMatPtr[n], P, myRank, status);
+            int kk;
+            printf("p:%d   ", myRank);
+            for (kk=0; kk<cnn->Out->outputNum; kk++){
+                printf("%.2f ", cnn->Out->p[kk]);
+            }
+            printf("\n");
+            printf("p:%d   ", myRank);
+            for (kk=0; kk<cnn->Out->outputNum; kk++){
+                printf("%.2f ", outputData->LabelPtr[n].LabelData[kk]);
+            }
+            printf("\n");
+//            cnn->L[epoch] = computeLoss(cnn->Out->p, outputData->LabelPtr[n].Labely);
+            cnnbp(cnn, outputData->LabelPtr[n].LabelData, P, myRank, status);
+//            printf("[test] inputData->ImgMatPtr[%d] - %d*%d\n", n, inputData->ImgMatPtr[n]->row, inputData->ImgMatPtr[n]->column);
+            gradient_save(cnn, opts, inputData->ImgMatPtr[n]);
+
+//            sprintf(saveFilePath, "cnnOutput_p%d_%d_%d.txt", myRank, epoch, n);
+//            cnnSaveOutput(cnn, inputData->ImgMatPtr[n], saveFilePath);
+
+//            sprintf(saveFilePath, "data/d/cnnD_%d_%d.txt", epoch, n);
+//            cnnSaveD(cnn, saveFilePath);
+
+//            sprintf(saveFilePath, "data/dWeight/cnnDWeight_%d_%d.txt", epoch, n);
+//            cnnSaveDWeight(cnn, saveFilePath);
+
+            cnnclear(cnn);
+            float l=0.0;
+            int i;
+            for(i=0;i<cnn->Out->outputNum;i++)
+                l=l+cnn->e[i]*cnn->e[i];
+            if(n==0)
+                cnn->L[n]=l/(float)2.0;
+            else
+                cnn->L[n]=cnn->L[n-1]*0.99+0.01*l/(float)2.0;
+//            l = computeLoss(cnn->Out->p, outputData->LabelPtr[n].Labely);
+            printf("p: %d ---- epoch = %d,     n = %d,     loss = %f\n", myRank, epoch, n, cnn->L[n]);
+
+            if ((n+1)%batch == 0){
+                gradient_update_Batch(cnn);
+                cnnclear_Save(cnn);
+                printf("________________epoch %d batch %d finished \n", epoch, n/batch);
+            }
+        }
+    }
+//    printf("[test] end trainModel\n");
+};
+
 
 float testModel(CNN* cnn, ImgArr inputData, LabelArr outputData, int testNum, int P, int myRank, MPI_Status status){
     int sumOfCorrect = 0;

@@ -33,8 +33,10 @@ typedef struct convolutional_layer{
     // 这里用四维数组，主要是为了表现全连接的形式，实际上卷积层并没有用到全连接的形式
     matrix*** mapWeight;
     matrix*** dmapWeight;
+    matrix*** dmapWeight_save;
 
     float* bias;   //偏置，偏置的大小，为outChannels
+    float* dBias_save;
     bool isFullConnect; //是否为全连接
     bool *connectModel; //连接模式（默认为全连接）
 
@@ -74,7 +76,9 @@ typedef struct nn_layer{
 
 //    float** weight; // 权重数据，为一个inputNum*outputNum大小
     matrix* weight;
+    matrix* dweight_save;
     float* bias;   //偏置，大小为outputNum大小
+    float* dBias_save;
 
 //    matrix* dweight;   // 权重梯度
 
@@ -103,6 +107,7 @@ typedef struct cnn_network{
 typedef struct train_opts{
     int numepochs; // 训练的迭代次数
     float eta; // 学习速率
+    int batch;
 }CNNOpts;
 
 CovLayer* initCovLayer(int inputHeight, int inputWidth, int mapSize, int inChannels, int outChannels, int paddingForward);
@@ -147,9 +152,17 @@ void cnnbp(CNN* cnn, float* outputData, int P, int myRank, MPI_Status status);
 
 void gradient_update(CNN* cnn, CNNOpts opts, matrix* inMat);
 
+void gradient_save(CNN* cnn, CNNOpts opts, matrix* inMat);
+
+void gradient_update_Batch(CNN* cnn);
+
 void cnnclear(CNN* cnn);
 
+void cnnclear_Save(CNN* cnn);
+
 void trainModel_modelPrallel(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, int trainNum, int P, int myRank, MPI_Status status);
+
+void trainModel_batch(CNN* cnn, ImgArr inputData, LabelArr outputData, CNNOpts opts, int trainNum, int P, int myRank, MPI_Status status);
 
 float testModel(CNN* cnn, ImgArr inputData, LabelArr outputData, int testNum, int P, int myRank, MPI_Status status);
 
